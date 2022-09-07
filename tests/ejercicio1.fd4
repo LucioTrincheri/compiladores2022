@@ -80,4 +80,14 @@ let rsFun = fun (x: Nat)(y:Nat)(z:Nat)(w:Nat) -> 2
 
 let rsFun2 = fun (x y z:Nat)(w:Nat) -> 2
 
+let hola = let f (x:Nat):Nat = 1 in f
+
 #type funNat = Nat
+let rsLetLam = fun (x:Nat) -> let f (x y z:Nat):Nat = 1 in f
+
+let rsLetRec = fun x:Nat -> let rec exp (m : Nat)(n p: Nat):Nat =
+            ifz n
+            then 0
+            else (ifz n - 1
+            then m
+            else mult m (exp m (n - 1) 1)) in exp 2 2

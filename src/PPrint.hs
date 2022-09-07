@@ -72,7 +72,12 @@ openAll gp ns (Print p str t) = SPrint (gp p) str (Just (openAll gp ns t))
 openAll gp ns (BinaryOp p op t u) = SBinaryOp (gp p) op (openAll gp ns t) (openAll gp ns u)
 openAll gp ns (Let p v ty m n) = 
     let v'= freshen ns v 
-    in  SLet (gp p) (v',ty) (openAll gp ns m) (openAll gp (v':ns) (open v' n))
+        def = (openAll gp ns m)
+        body = (openAll gp (v':ns) (open v' n))
+    in case def of 
+      (SLam i xs ct) -> (SLetLam (gp p) False (v', xs ,ty) ct body)
+      (SFix i (f, tf) (x, tx) xs fixDef) -> (SLetLam (gp p) True (v', (([x], tx):xs), ty) fixDef body)
+      def' -> SLet (gp p) (v',ty) def' body
 
 mkSLam :: (i -> Pos) -> [Name] -> Tm i Var -> ([([Name], Ty)], Tm i Var)
 mkSLam i ns (Lam p x ty t) = 
@@ -189,6 +194,35 @@ t2doc at (SLet _ (v,ty) t t') =
   , nest 2 (t2doc False t)
   , keywordColor (pretty "in")
   , nest 2 (t2doc False t') ]
+
+t2doc at (SLetLam _ False (f, xs, ty) def body) =
+  parenIf at $
+  sep [
+    (sep ([keywordColor (pretty "let")
+      ,
+      binding2doc (f, ty)]
+      ++
+      (map bindingMultdoc xs)
+      ++
+       [opColor (pretty "=") ]))
+  , nest 2 (t2doc False def)
+  , keywordColor (pretty "in")
+  , nest 2 (t2doc False body) ]
+
+t2doc at (SLetLam _ True (f, xs, ty) def body) =
+  parenIf at $
+  sep [
+    (sep ([keywordColor (pretty "let rec")
+      ,
+      binding2doc (f, ty)]
+      ++
+      (map bindingMultdoc xs)
+      ++
+       [opColor (pretty "=") ]))
+  , nest 2 (t2doc False def)
+  , keywordColor (pretty "in")
+  , nest 2 (t2doc False body) ]
+
 
 t2doc at (SBinaryOp _ o a b) =
   parenIf at $
