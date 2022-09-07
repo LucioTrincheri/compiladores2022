@@ -35,7 +35,6 @@ let false = fun(t: Nat->Nat)->fun(f: Nat->Nat)-> f
 
 let ifb = fun(b: (Nat->Nat)->(Nat->Nat)->(Nat->Nat))->fun(t: Nat->Nat)->fun(f: Nat->Nat)-> b t f 0
 
-
 let gcd = fix(gcd: Nat->Nat->Nat)(m : Nat)->
                 fun(n : Nat)->
                 (ifz n
