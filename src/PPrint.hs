@@ -54,21 +54,38 @@ openAll gp ns (V p v) = case v of
       Free x -> SV (gp p) x
       Global x -> SV (gp p) x
 openAll gp ns (Const p c) = SConst (gp p) c
-openAll gp ns (Lam p x ty t) = 
-  let x' = freshen ns x 
-  in SLam (gp p) [([x'],ty)] (openAll gp (x':ns) (open x' t))
+openAll gp ns l@(Lam p x ty t) = 
+  let --x' = freshen ns x 
+      (xs, t') = mkSLam gp ns l 
+  in SLam (gp p) xs (openAll gp ns t')
 openAll gp ns (App p t u) = SApp (gp p) (openAll gp ns t) (openAll gp ns u)
 openAll gp ns (Fix p f fty x xty t) = 
   let 
     x' = freshen ns x
     f' = freshen (x':ns) f
-  in SFix (gp p) (f',fty) (x',xty) [] (openAll gp (x:f:ns) (open2 f' x' t))
+    fun = (openAll gp (x:f:ns) (open2 f' x' t))
+  in case fun of
+    (SLam i xs ct) -> (SFix (gp p) (f',fty) (x',xty) xs ct)
+    ct -> (SFix (gp p) (f',fty) (x',xty) [] ct)
 openAll gp ns (IfZ p c t e) = SIfZ (gp p) (openAll gp ns c) (openAll gp ns t) (openAll gp ns e)
 openAll gp ns (Print p str t) = SPrint (gp p) str (Just (openAll gp ns t))
 openAll gp ns (BinaryOp p op t u) = SBinaryOp (gp p) op (openAll gp ns t) (openAll gp ns u)
 openAll gp ns (Let p v ty m n) = 
     let v'= freshen ns v 
     in  SLet (gp p) (v',ty) (openAll gp ns m) (openAll gp (v':ns) (open v' n))
+
+mkSLam :: (i -> Pos) -> [Name] -> Tm i Var -> ([([Name], Ty)], Tm i Var)
+mkSLam i ns (Lam p x ty t) = 
+                              let  nw = freshen ns x
+                                   op = open nw t
+                              in case op of
+                                l@(Lam _ _ _ _) -> let (xs@((va', ty'):xs'), t) = mkSLam i (nw:ns) l
+                                                   in if ty == ty' then ((nw:va', ty):xs', t)
+                                                                   else ((([nw], ty):xs), t)
+                                term -> ([([nw], ty)], term)
+
+--mkSLam i ns (Lam p x ty t) = ([], t)
+
 
 --Colores
 constColor :: Doc AnsiStyle -> Doc AnsiStyle
@@ -132,11 +149,10 @@ t2doc at (SV _ x) = name2doc x
 t2doc at (SConst _ c) = c2doc c
 t2doc at (SLam _ param t) =
   parenIf at $
-  sep [sep [ keywordColor (pretty "fun")
-           , binding2doc (v,ty)
-           , opColor(pretty "->")]
-      , nest 2 (t2doc False t)]
-  where ((v,ty):xs) = dbnd param
+  sep [sep( [ keywordColor (pretty "fun")] ++ xs ++ 
+           [opColor(pretty "->")
+      , nest 2 (t2doc False t)])]
+  where xs = map bindingMultdoc param
 
 t2doc at t@(SApp _ _ _) =
   let (h, ts) = collectApp t in
@@ -145,11 +161,14 @@ t2doc at t@(SApp _ _ _) =
 
 t2doc at (SFix _ (f,fty) (x,xty) xs m) =
   parenIf at $
-  sep [ sep [keywordColor (pretty "fix")
+  sep [ sep ([keywordColor (pretty "fix")
                   , binding2doc (f, fty)
-                  , binding2doc (x, xty)
-                  , opColor (pretty "->") ]
-      , nest 2 (t2doc False m)
+                  , binding2doc (x, xty)]
+                  ++
+                    map bindingMultdoc xs
+                  ++
+                  [opColor (pretty "->") 
+      , nest 2 (t2doc False m)])
       ]
 t2doc at (SIfZ _ c t e) =
   parenIf at $
@@ -178,6 +197,10 @@ t2doc at (SBinaryOp _ o a b) =
 binding2doc :: (Name, Ty) -> Doc AnsiStyle
 binding2doc (x, ty) =
   parens (sep [name2doc x, pretty ":", ty2doc ty])
+
+bindingMultdoc :: ([Name], Ty) -> Doc AnsiStyle
+bindingMultdoc (x, ty) =
+  parens (sep ((map name2doc x) ++ [pretty ":", ty2doc ty]))
 
 -- | Pretty printing de términos (String)
 pp :: MonadFD4 m => TTerm -> m String

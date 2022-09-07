@@ -35,15 +35,14 @@ let false = fun(t: Nat->Nat)->fun(f: Nat->Nat)-> f
 
 let ifb = fun(b: (Nat->Nat)->(Nat->Nat)->(Nat->Nat))->fun(t: Nat->Nat)->fun(f: Nat->Nat)-> b t f 0
 
-let gcd = fix(gcd: Nat->Nat->Nat)(m : Nat)->
-                fun(n : Nat)->
+let gcd = fix(gcd: Nat->Nat->Nat->Nat)(m : Nat)(n b :Nat)->
                 (ifz n
                 then m
                 else (ifz m
                 then n
                 else (ifz m - n
-                then gcd m (n - m)
-                else gcd (m - n) n)))
+                then gcd m (n - m) b
+                else gcd (m - n) n b)))
 
 let R = fix(god: Nat->(Nat->Nat->Nat)->Nat->Nat)(b:Nat)
             -> fun(o: (Nat->Nat->Nat))
@@ -76,5 +75,9 @@ let rec multaz (m:Nat)(n b a: Nat):Nat =
                     else m + (multaz m (n - 1) 1 4))
 
 type funNat = Nat->Nat
+
+let rsFun = fun (x: Nat)(y:Nat)(z:Nat)(w:Nat) -> 2
+
+let rsFun2 = fun (x y z:Nat)(w:Nat) -> 2
 
 #type funNat = Nat
