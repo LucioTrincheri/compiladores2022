@@ -63,5 +63,5 @@ evalCEK ::  MonadFD4 m => TTerm -> m TTerm
 evalCEK t = do s <- search t [] []
                case s of
                   VNat n -> return (Const (NoPos, NatTy) (CNat n))
-                  VClos (ClosFun _ x t1 t) -> return (Lam (NoPos, NatTy) x t1 (Sc1 t))
-                  VClos (ClosFix _ x1 t1 x2 t2 t) -> return (Fix (NoPos, NatTy) x1 t1 x2 t2 (Sc2 t))
+                  VClos (ClosFun _ x t1 t) -> return (Lam (NoPos, t1) x t1 (Sc1 t))
+                  VClos (ClosFix _ x1 t1 x2 t2 t) -> return (Fix (NoPos, t1) x1 t1 x2 t2 (Sc2 t))
