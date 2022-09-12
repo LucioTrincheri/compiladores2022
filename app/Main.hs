@@ -32,6 +32,7 @@ import Lang
 import Parse ( P, tm, program, declOrTm, runP )
 import Elab ( elab, elabDecl, elabDeclType, elabTermType )
 import Eval ( eval )
+import CEK ( evalCEK )
 import PPrint ( pp , ppTy, ppDecl )
 import MonadFD4
 import TypeChecker ( tc, tcDecl )
@@ -45,7 +46,7 @@ prompt = "FD4> "
 parseMode :: Parser (Mode,Bool)
 parseMode = (,) <$>
       (flag' Typecheck ( long "typecheck" <> short 't' <> help "Chequear tipos e imprimir el término")
-  -- <|> flag' InteractiveCEK (long "interactiveCEK" <> short 'k' <> help "Ejecutar interactivamente en la CEK")
+      <|> flag' InteractiveCEK (long "interactiveCEK" <> short 'k' <> help "Ejecutar interactivamente en la CEK")
   -- <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
   -- <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
       <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
@@ -73,6 +74,8 @@ main = execParser opts >>= go
     go :: (Mode,Bool,[FilePath]) -> IO ()
     go (Interactive,opt,files) =
               runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
+    go (InteractiveCEK, opt, files) =
+              runOrFail (Conf opt InteractiveCEK) (runInputT defaultSettings (repl files))
     go (m,opt, files) =
               runOrFail (Conf opt m) $ mapM_ compileFile files
 
@@ -151,6 +154,14 @@ handleDecl d = do
                                   -- td' <- if opt then optimize td else td
                                   ppterm <- ppDecl tf  --td'
                                   printFD4 ppterm)
+          InteractiveCEK -> do
+                              printFD4 ("CEK")
+                              a <- typecheckDecl d
+                              (case a of
+                                Nothing -> return ()
+                                Just (Decl p x tt) -> 
+                                  do te <- evalCEK tt
+                                     addDecl (Decl p x te))
 
       where
         typecheckDecl :: MonadFD4 m => SDecl STerm -> m (Maybe (Decl TTerm))
@@ -251,9 +262,16 @@ handleTerm t = do
          t' <- elab ty
          s <- get
          tt <- tc t' (tyEnv s)
-         te <- eval tt
-         ppte <- pp te
-         printFD4 (ppte ++ " : " ++ ppTy (getTy tt))
+         m <- getMode
+         case m of
+           Interactive -> do te <- eval tt
+                             ppte <- pp te
+                             printFD4 (ppte ++ " : " ++ ppTy (getTy tt))
+           InteractiveCEK -> do te <- evalCEK tt
+                                printFD4 ("CEK")
+                                ppte <- pp te
+                                printFD4 (ppte ++ " : " ++ ppTy (getTy tt))
+      -- !Check if its necesary use pattern Typecheck 
 
 printPhrase   :: MonadFD4 m => String -> m ()
 printPhrase x =

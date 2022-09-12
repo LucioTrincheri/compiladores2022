@@ -3,20 +3,14 @@ let resta = fun(a:Nat) ->
                 fun(b:Nat) ->
                     a - b
 
-let mult = fix(mul: Nat->Nat->Nat)(m : Nat) -> 
-            fun(n : Nat) -> 
-            ifz n
-            then 0
-            else (ifz n - 1
-            then m
-            else m + (mul m (n - 1)))
+let mult = fix(mul: Nat->Nat->Nat)(m : Nat) -> fun(n : Nat) -> ifz n then 0 else (ifz n - 1 then m else m + (mul m (n - 1)))
 
-let expo = fix(exp: Nat->Nat->Nat)(m : Nat)(n : Nat) -> 
-            ifz n
+let expo = fix(exp: Nat->Nat->Nat)(j : Nat)(k : Nat) -> 
+            ifz k
             then 0
-            else (ifz n - 1
-            then m
-            else mult m (exp m (n - 1)))
+            else (ifz k - 1
+            then j
+            else mult j (exp j (k - 1)))
 
 let fact = fix(fact: Nat->Nat)(m : Nat)->
             ifz m then 1 else mult m (fact (m - 1))

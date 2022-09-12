@@ -36,7 +36,7 @@ tyEnvDef g = (typeDefs g)
 data Mode =
     Interactive
   | Typecheck
-  -- | InteractiveCEK
+  | InteractiveCEK
   -- | Bytecompile
   -- | RunVM
   -- | CC
