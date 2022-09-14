@@ -155,7 +155,6 @@ handleDecl d = do
                                   ppterm <- ppDecl tf  --td'
                                   printFD4 ppterm)
           InteractiveCEK -> do
-                              printFD4 ("CEK")
                               a <- typecheckDecl d
                               (case a of
                                 Nothing -> return ()
@@ -268,7 +267,6 @@ handleTerm t = do
                              ppte <- pp te
                              printFD4 (ppte ++ " : " ++ ppTy (getTy tt))
            InteractiveCEK -> do te <- evalCEK tt
-                                printFD4 ("CEK")
                                 ppte <- pp te
                                 printFD4 (ppte ++ " : " ++ ppTy (getTy tt))
       -- !Check if its necesary use pattern Typecheck 
