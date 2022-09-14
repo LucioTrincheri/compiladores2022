@@ -46,6 +46,7 @@ prompt = "FD4> "
 parseMode :: Parser (Mode,Bool)
 parseMode = (,) <$>
       (flag' Typecheck ( long "typecheck" <> short 't' <> help "Chequear tipos e imprimir el término")
+      <|> flag' InteractiveTypecheck (long "interactiveTypecheck" <> short 'Ǽ' <> help "Chequear tipos de manera interactiva")
       <|> flag' InteractiveCEK (long "interactiveCEK" <> short 'k' <> help "Ejecutar interactivamente en la CEK")
   -- <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
   -- <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
@@ -76,6 +77,8 @@ main = execParser opts >>= go
               runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
     go (InteractiveCEK, opt, files) =
               runOrFail (Conf opt InteractiveCEK) (runInputT defaultSettings (repl files))
+    go (InteractiveTypecheck, opt, files) =
+              runOrFail (Conf opt InteractiveTypecheck) (runInputT defaultSettings (repl files))
     go (m,opt, files) =
               runOrFail (Conf opt m) $ mapM_ compileFile files
 
@@ -161,6 +164,7 @@ handleDecl d = do
                                 Just (Decl p x tt) -> 
                                   do te <- evalCEK tt
                                      addDecl (Decl p x te))
+          _ -> pure () -- Para los casos que no son necesarios considerar. Idem mas abajo
 
       where
         typecheckDecl :: MonadFD4 m => SDecl STerm -> m (Maybe (Decl TTerm))
@@ -269,8 +273,11 @@ handleTerm t = do
            InteractiveCEK -> do te <- evalCEK tt
                                 ppte <- pp te
                                 printFD4 (ppte ++ " : " ++ ppTy (getTy tt))
-      -- !Check if its necesary use pattern Typecheck 
-
+           InteractiveTypecheck -> do 
+                            tpp <- pp tt
+                            printFD4 tpp 
+           _ -> pure ()
+ 
 printPhrase   :: MonadFD4 m => String -> m ()
 printPhrase x =
   do
