@@ -9,18 +9,17 @@ import PPrint ( ppName, pp )
 
 
 data Clos = ClosFun CEKEnv Name Ty Ty TTerm | ClosFix CEKEnv Name Ty Name Ty Ty TTerm deriving(Show)
--- TODO Preguntar lo de los tipos para search de lam y fix
-type CEKEnv = [Val]
 
 data Val = VNat Int
          | VClos Clos
          deriving(Show)
 
+type CEKEnv = [Val]
+
 data Fr = CEKTerm CEKEnv TTerm 
         | CEKClos Clos 
         | CEKIfz CEKEnv TTerm TTerm
         | CEKBinaryOpTerm CEKEnv BinaryOp TTerm
-        -- Tal vez sea Int o VNat en ves de Val
         | CEKBinaryOpVal Val BinaryOp
         | CEKPrint String
         | CEKLet CEKEnv Name TTerm
@@ -33,7 +32,6 @@ search (BinaryOp i b t1 t2) p k = search t1 p ((CEKBinaryOpTerm p b t2):k)
 search (App i t1 t2) p k = search t1 p ((CEKTerm p t2):k)
 search (IfZ i c t1 t2) p k = search c p ((CEKIfz p t1 t2):k)
 search (V i (Bound n)) p k = destroy (p!!n) k
--- no deberia llegar al siguiente caso
 search (V i (Free x)) p k = failPosFD4 (fst i) "Variable libre que no deberia estar aca"
 search (V i (Global x)) p k = do 
     xVal <- lookupDecl x
