@@ -1,5 +1,5 @@
 module CEK where
-
+ 
 import Common 
 import Lang
 import Subst ( subst2, subst, substN, close, close2 )
