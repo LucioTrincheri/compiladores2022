@@ -1,0 +1,5 @@
+# Tests de ejercicio 1 y declaraciones sin azucar sintactico.
+let resta = fun(a:Nat) -> 
+                fun(b:Nat) ->
+                    a - b
+let a = print "asdfasdfasdf" (resta 1000 2000)

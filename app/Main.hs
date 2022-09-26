@@ -21,7 +21,7 @@ import Data.List (nub, isPrefixOf, intercalate )
 import Data.Char ( isSpace )
 import Control.Exception ( catch , IOException )
 import System.IO ( hPrint, stderr, hPutStrLn )
-import Data.Maybe ( fromMaybe )
+import Data.Maybe ( fromMaybe, maybeToList )
 
 import System.Exit ( exitWith, ExitCode(ExitFailure) )
 import Options.Applicative
@@ -36,6 +36,7 @@ import CEK ( evalCEK )
 import PPrint ( pp , ppTy, ppDecl )
 import MonadFD4
 import TypeChecker ( tc, tcDecl )
+import Bytecompile
 
 prompt :: String
 prompt = "FD4> "
@@ -48,7 +49,7 @@ parseMode = (,) <$>
       (flag' Typecheck ( long "typecheck" <> short 't' <> help "Chequear tipos e imprimir el término")
       <|> flag' InteractiveTypecheck (long "interactiveTypecheck" <> short 'Ǽ' <> help "Chequear tipos de manera interactiva")
       <|> flag' InteractiveCEK (long "interactiveCEK" <> short 'k' <> help "Ejecutar interactivamente en la CEK")
-  -- <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
+      <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
   -- <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
       <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
   -- <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")
@@ -79,6 +80,8 @@ main = execParser opts >>= go
               runOrFail (Conf opt InteractiveCEK) (runInputT defaultSettings (repl files))
     go (InteractiveTypecheck, opt, files) =
               runOrFail (Conf opt InteractiveTypecheck) (runInputT defaultSettings (repl files))
+    go (Bytecompile, opt, files) =
+              runOrFail (Conf opt Bytecompile) $ mapM_ compileFile files
     go (m,opt, files) =
               runOrFail (Conf opt m) $ mapM_ compileFile files
 
@@ -120,14 +123,37 @@ loadFile f = do
     setLastFile filename
     parseIO filename program x
 
+
+checkAndStore :: MonadFD4 m => Decl Term -> m (Decl TTerm)
+checkAndStore d = do t' <- tcDecl d
+                     addDecl t'
+                     return t'
+                     
+
 compileFile ::  MonadFD4 m => FilePath -> m ()
 compileFile f = do
-    i <- getInter
-    setInter False
-    printFD4 ("Abriendo "++f++"...")
-    decls <- loadFile f
-    mapM_ handleDecl decls
-    setInter i
+    mode <- getMode
+    case mode of
+      Bytecompile -> do
+                    setInter False
+                    printFD4 ("Abriendo "++f++"...")
+                    lf <- loadFile f
+
+                    mbl <- mapM elabDeclType lf
+                    mbl2 <- mapM elabDecl mbl
+                    let decls = concat (map maybeToList mbl2)
+                    typedDecls <- mapM checkAndStore decls
+                    
+                    comp <- bytecompileModule typedDecls
+                    liftIO $ writeFile "file.bc" (unwords (map show comp))
+                    -- map read $ words "1 2 3 4 5"
+      _ -> do 
+                    i <- getInter
+                    setInter False
+                    printFD4 ("Abriendo "++f++"...")
+                    decls <- loadFile f
+                    mapM_ handleDecl decls
+                    setInter i
 
 parseIO ::  MonadFD4 m => String -> P a -> String -> m a
 parseIO filename p x = case runP p x filename of
@@ -166,14 +192,14 @@ handleDecl d = do
                                      addDecl (Decl p x te))
           _ -> pure () -- Para los casos que no son necesarios considerar. Idem mas abajo
 
-      where
-        typecheckDecl :: MonadFD4 m => SDecl STerm -> m (Maybe (Decl TTerm))
-        typecheckDecl dec = do decT <- elabDeclType dec 
-                               t <- elabDecl decT
-                               case t of
-                                Nothing -> return Nothing
-                                Just tt -> do t' <- tcDecl tt
-                                              return (Just t')
+
+typecheckDecl :: MonadFD4 m => SDecl STerm -> m (Maybe (Decl TTerm))
+typecheckDecl dec = do  decT <- elabDeclType dec 
+                        t <- elabDecl decT
+                        case t of
+                          Nothing -> return Nothing
+                          Just tt -> do t' <- tcDecl tt
+                                        return (Just t')
 
 
 

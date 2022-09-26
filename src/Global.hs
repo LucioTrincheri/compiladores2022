@@ -38,7 +38,7 @@ data Mode =
   | Typecheck
   | InteractiveCEK
   | InteractiveTypecheck
-  -- | Bytecompile
+  | Bytecompile
   -- | RunVM
   -- | CC
   -- | Canon

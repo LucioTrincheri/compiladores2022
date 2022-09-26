@@ -5,6 +5,7 @@ let resta = fun(a:Nat) ->
 
 let mult = fix(mul: Nat->Nat->Nat)(m : Nat) -> fun(n : Nat) -> ifz n then 0 else (ifz n - 1 then m else m + (mul m (n - 1)))
 
+
 let expo = fix(exp: Nat->Nat->Nat)(j : Nat)(k : Nat) -> 
             ifz k
             then 0

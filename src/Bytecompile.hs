@@ -17,6 +17,7 @@ module Bytecompile
 import Lang
 import Subst
 import MonadFD4
+import Common
 
 import qualified Data.ByteString.Lazy as BS
 import Data.Binary ( Word32, Binary(put, get), decode, encode )
@@ -96,8 +97,33 @@ showBC :: Bytecode -> String
 showBC = intercalate "; " . showOps
 
 bcc :: MonadFD4 m => TTerm -> m Bytecode
-bcc t = failFD4 "implementame!"
-
+bcc (V i (Global x)) = do var <- lookupDecl x
+                          case var of
+                            Just val -> bcc val 
+                            Nothing -> failPosFD4 (fst i) "Variable indefinida"
+bcc (V i (Bound x)) = return [ACCESS, x]                 
+bcc (Const i (CNat x)) = return [CONST, x]
+bcc (Lam i x ty (Sc1 y)) = do y' <- bcc y
+                              return ([FUNCTION] ++ y' ++ [RETURN])
+bcc (App i x y ) = do x' <- bcc x
+                      y' <- bcc y
+                      return (x' ++ y' ++ [CALL])                     
+bcc (BinaryOp i x y z ) = do y' <- bcc y
+                             z' <- bcc z
+                             case x of
+                              Add -> return (y' ++ z' ++ [ADD])
+                              Sub -> return (y' ++ z' ++ [SUB])
+bcc (Fix i x xty y yty (Sc2 z)) = do z' <- bcc z
+                                     return ([FIX] ++ z' ++ [RETURN])
+bcc (Let i x xty y (Sc1 z)) = do y' <- bcc y
+                                 z' <- bcc z
+                                 return (y' ++ [SHIFT] ++ z' ++ [DROP])
+bcc (IfZ i x y z) = do x' <- bcc x
+                       y' <- bcc y
+                       z' <- bcc z
+                       return (z' ++ y' ++ x' ++ [JUMP])
+bcc (Print i msg y) = do y' <- bcc y
+                         return (y' ++ [PRINTN] ++ [NULL] ++ (reverse (map ord msg)) ++ [PRINT])
 -- ord/chr devuelven los codepoints unicode, o en otras palabras
 -- la codificación UTF-32 del caracter.
 string2bc :: String -> Bytecode
@@ -107,7 +133,14 @@ bc2string :: Bytecode -> String
 bc2string = map chr
 
 bytecompileModule :: MonadFD4 m => Module -> m Bytecode
-bytecompileModule m = failFD4 "implementame!"
+bytecompileModule i = do by <- (bytecompileModule' i)
+                         com <- (bcc by)
+                         return (com ++ [STOP])
+
+bytecompileModule' :: MonadFD4 m => Module -> m TTerm
+bytecompileModule' [] = return (Const (NoPos, NatTy) (CNat 0))
+bytecompileModule' ((Decl i name body):xs) = do by <- (bytecompileModule' xs)
+                                                return (Let (i, (getTy body)) name (getTy body) body (close name by))
 
 -- | Toma un bytecode, lo codifica y lo escribe un archivo
 bcWrite :: Bytecode -> FilePath -> IO ()
