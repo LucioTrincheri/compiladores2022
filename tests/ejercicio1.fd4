@@ -87,5 +87,8 @@ let rsLetRec = fun x:Nat -> let rec exp (m : Nat)(n p: Nat):Nat =
             then m
             else mult m (exp m (n - 1) 1)) in exp 2 2
 
+let ack = fix (ackm:Nat->Nat->Nat) (m:Nat) (n:Nat) -> ifz m then (n+1) else (ifz n then (ackm (m-1) 1) else (ackm (m-1) (ackm m (n-1))))
+
+let testAck = print "Ackermann 2 5 = " (ack 3 11)
 
 let TestFactaz = print "factaz 5 = " (factaz 5)
