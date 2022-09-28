@@ -86,3 +86,6 @@ let rsLetRec = fun x:Nat -> let rec exp (m : Nat)(n p: Nat):Nat =
             else (ifz n - 1
             then m
             else mult m (exp m (n - 1) 1)) in exp 2 2
+
+
+let TestFactaz = print "factaz 5 = " (factaz 5)

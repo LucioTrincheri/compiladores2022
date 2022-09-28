@@ -50,7 +50,7 @@ parseMode = (,) <$>
       <|> flag' InteractiveTypecheck (long "interactiveTypecheck" <> short 'Ǽ' <> help "Chequear tipos de manera interactiva")
       <|> flag' InteractiveCEK (long "interactiveCEK" <> short 'k' <> help "Ejecutar interactivamente en la CEK")
       <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
-  -- <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
+      <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
       <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
   -- <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")
   -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonicalización")
@@ -82,6 +82,8 @@ main = execParser opts >>= go
               runOrFail (Conf opt InteractiveTypecheck) (runInputT defaultSettings (repl files))
     go (Bytecompile, opt, files) =
               runOrFail (Conf opt Bytecompile) $ mapM_ compileFile files
+    go (RunVM, opt, files) =
+              runOrFail (Conf opt RunVM) $ mapM_ compileFile files
     go (m,opt, files) =
               runOrFail (Conf opt m) $ mapM_ compileFile files
 
@@ -145,8 +147,11 @@ compileFile f = do
                     typedDecls <- mapM checkAndStore decls
                     
                     comp <- bytecompileModule typedDecls
-                    liftIO $ writeFile "file.bc" (unwords (map show comp))
+                    liftIO $ bcWrite comp "file.bc"
                     -- map read $ words "1 2 3 4 5"
+      RunVM -> do
+                  lf <- liftIO $ bcRead f
+                  runBC lf
       _ -> do 
                     i <- getInter
                     setInter False

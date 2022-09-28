@@ -35,6 +35,7 @@ module MonadFD4 (
   catchErrors,
   addTypeDef,
   lookupTyDef,
+  printFD4Char,
   MonadFD4,
   module Control.Monad.Except,
   module Control.Monad.State)
@@ -82,6 +83,9 @@ getInter = gets inter
 
 printFD4 :: MonadFD4 m => String -> m ()
 printFD4 = liftIO . putStrLn
+
+printFD4Char :: MonadFD4 m => String -> m ()
+printFD4Char = liftIO . putStr
 
 setLastFile :: MonadFD4 m => FilePath -> m ()
 setLastFile filename = modify (\s -> s {lfile = filename , cantDecl = 0})

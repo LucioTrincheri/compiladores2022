@@ -2,4 +2,11 @@
 let resta = fun(a:Nat) -> 
                 fun(b:Nat) ->
                     a - b
-let a = print "asdfasdfasdf" (resta 1000 2000)
+
+let a = print "asdfasdfasdf" (resta 2000 1000)
+
+let mult = fix(mul: Nat->Nat->Nat)(m : Nat) -> fun(n : Nat) -> ifz n then 0 else (ifz n - 1 then m else m + (mul m (n - 1)))
+
+let TestIfz = print "ifz 0 0 1 = " (ifz 0 then (1 + 5) else 1)
+
+let TestMult = print "mult 2 2 = " (mult 2 2)
