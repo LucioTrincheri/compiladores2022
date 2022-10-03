@@ -92,3 +92,12 @@ let ack = fix (ackm:Nat->Nat->Nat) (m:Nat) (n:Nat) -> ifz m then (n+1) else (ifz
 let testAck = print "Ackermann 2 5 = " (ack 3 11)
 
 let TestFactaz = print "factaz 5 = " (factaz 5)
+
+let aa = 1 + 2
+
+let bb = 2 - 1
+#let rec f (x:Nat):Nat = f x
+
+#let testStack = f 0 
+
+#FIXPOINT(ACCESS 1; ACCESS 0; TAILCALL); CONST 0; CALL

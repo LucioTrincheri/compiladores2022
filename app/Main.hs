@@ -145,8 +145,10 @@ compileFile f = do
                     mbl2 <- mapM elabDecl mbl
                     let decls = concat (map maybeToList mbl2)
                     typedDecls <- mapM checkAndStore decls
-                    
+                    printFD4 (show typedDecls)
+
                     comp <- bytecompileModule typedDecls
+                    printFD4 (showBC comp)
                     liftIO $ bcWrite comp "file.bc"
                     -- map read $ words "1 2 3 4 5"
       RunVM -> do

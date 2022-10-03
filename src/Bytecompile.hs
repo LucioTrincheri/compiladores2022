@@ -1,5 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE BangPatterns #-}
 {-|
 Module      : Bytecompile
 Description : Compila a bytecode. Ejecuta bytecode.
@@ -71,6 +72,7 @@ pattern PRINT    = 13
 pattern PRINTN   = 14
 pattern JUMP     = 15
 pattern IJUMP    = 16
+pattern TAILCALL = 17
 
 --función util para debugging: muestra el Bytecode de forma más legible.
 showOps :: Bytecode -> [String]
@@ -81,9 +83,10 @@ showOps (CONST:i:xs)     = ("CONST " ++  show i) : showOps xs
 showOps (ACCESS:i:xs)    = "ACCESS" : show i : showOps xs
 showOps (FUNCTION:i:xs)  = "FUNCTION" : show i : showOps xs
 showOps (CALL:xs)        = "CALL" : showOps xs
+showOps (TAILCALL:xs)    = "TAILCALL" : showOps xs
 showOps (ADD:xs)         = "ADD" : showOps xs
 showOps (SUB:xs)         = "SUB" : showOps xs
-showOps (FIX:xs)         = "FIX" : showOps xs
+showOps (FIX:i:xs)       = "FIX" : (show i) : showOps xs
 showOps (STOP:xs)        = "STOP" : showOps xs
 showOps (JUMP:i:xs)      = "JUMP" : show i: showOps xs
 showOps (SHIFT:xs)       = "SHIFT" : showOps xs
@@ -104,8 +107,8 @@ bcc (V i (Global x)) = do var <- lookupDecl x
                             Nothing -> failPosFD4 (fst i) "Variable indefinida"
 bcc (V i (Bound x)) = return [ACCESS, x]                 
 bcc (Const i (CNat x)) = return [CONST, x]
-bcc (Lam i x ty (Sc1 y)) = do y' <- bcc y
-                              return ([FUNCTION] ++ [(length y')+1] ++ y' ++ [RETURN])
+bcc (Lam i x ty (Sc1 y)) = do y' <- bct y
+                              return ([FUNCTION] ++ [(length y')] ++ y')
 bcc (App i x y ) = do x' <- bcc x
                       y' <- bcc y
                       return (x' ++ y' ++ [CALL])                     
@@ -114,8 +117,8 @@ bcc (BinaryOp i x y z ) = do y' <- bcc y
                              case x of
                               Add -> return (z' ++ y' ++ [ADD])
                               Sub -> return (z' ++ y' ++ [SUB])
-bcc (Fix i x xty y yty (Sc2 z)) = do z' <- bcc z
-                                     return ([FIX] ++ [(length z')+1] ++ z' ++ [RETURN])
+bcc (Fix i x xty y yty (Sc2 z)) = do z' <- bct z
+                                     return ([FIX] ++ [(length z')] ++ z')
 bcc (Let i x xty y (Sc1 z)) = do y' <- bcc y
                                  z' <- bcc z
                                  return (y' ++ [SHIFT] ++ z' ++ [DROP])
@@ -125,6 +128,21 @@ bcc (IfZ i x y z) = do x' <- bcc x
                        return (x' ++ [JUMP] ++ [(length y') + 2] ++ y' ++ [IJUMP] ++ [length z'] ++ z')
 bcc (Print i msg y) = do y' <- bcc y
                          return ([PRINT] ++ (map ord msg) ++ [NULL] ++ y' ++ [PRINTN])
+
+bct :: MonadFD4 m => TTerm -> m Bytecode
+bct (App i x y ) = do x' <- bcc x
+                      y' <- bcc y
+                      return (x' ++ y' ++ [TAILCALL])
+bct (IfZ i x y z) = do x' <- bcc x
+                       y' <- bct y
+                       z' <- bct z
+                       return (x' ++ [JUMP] ++ [(length y') + 2] ++ y' ++ [IJUMP] ++ [length z'] ++ z')
+bct (Let i x xty y (Sc1 z)) = do y' <- bcc y
+                                 z' <- bct z
+                                 return (y' ++ [SHIFT] ++ z')
+bct x = do x' <- bcc x
+           return (x' ++ [RETURN])
+
 -- ord/chr devuelven los codepoints unicode, o en otras palabras
 -- la codificación UTF-32 del caracter.
 string2bc :: String -> Bytecode
@@ -145,7 +163,8 @@ bytecompileModule' ((Decl i name body):xs) = do by <- (bytecompileModule' xs)
 
 -- | Toma un bytecode, lo codifica y lo escribe un archivo
 bcWrite :: Bytecode -> FilePath -> IO ()
-bcWrite bs filename = BS.writeFile filename (encode $ BC $ fromIntegral <$> bs)
+bcWrite bs filename = do 
+  BS.writeFile filename (encode $ BC $ fromIntegral <$> bs)
 
 ---------------------------
 -- * Ejecución de bytecode
@@ -192,5 +211,5 @@ runBD' (JUMP:(tl:c)) e ((MNat n):s) = if n == 0
                                         where c' = drop tl c
 runBD' (IJUMP:(fl:c)) e s = let c' = (drop fl c)
                             in runBD' c' e s
-
+runBD' (TAILCALL:c) e (!v:(MClos ef cf):s) = runBD' cf (v:ef) s
 runBD' _ _ _ = failFD4 "Error de ejecucion"
