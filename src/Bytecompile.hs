@@ -90,7 +90,7 @@ showOps (ADD:xs)         = "ADD" : showOps xs
 showOps (SUB:xs)         = "SUB" : showOps xs
 showOps (FIX:i:xs)       = "FIX" : (show i) : showOps xs
 showOps (STOP:xs)        = "STOP" : showOps xs
-showOps (JUMP:i:xs)      = "JUMP" : show i: showOps xs
+showOps (JUMP:i:xs)      = ("JUMP off=" ++ show i) : showOps xs
 showOps (SHIFT:xs)       = "SHIFT" : showOps xs
 showOps (DROP:xs)        = "DROP" : showOps xs
 showOps (PRINT:xs)       = let (msg:rest) = splitOn [NULL,NULL,NULL,NULL] xs
