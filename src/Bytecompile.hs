@@ -22,8 +22,9 @@ import Common
 
 import qualified Data.ByteString.Lazy as BS
 import Data.Binary ( Word32, Binary(put, get), decode, encode )
-import Data.Binary.Put ( putWord32le )
-import Data.Binary.Get ( getWord32le, isEmpty )
+import Data.Binary.Put ( putWord32le, putWord8 )
+import Data.Binary.Get ( getWord32le, getWord8, isEmpty )
+import Data.Word
 
 import Data.List (intercalate)
 import Data.Char
@@ -31,18 +32,18 @@ import Data.Char
 type Opcode = Int
 type Bytecode = [Int]
 
-newtype Bytecode32 = BC { un32 :: [Word32] }
+newtype Bytecode32 = BC { un8 :: [Word8] }
 
 {- Esta instancia explica como codificar y decodificar Bytecode de 32 bits -}
 instance Binary Bytecode32 where
-  put (BC bs) = mapM_ putWord32le bs
+  put (BC bs) = mapM_ putWord8 bs
   get = go
     where go =
            do
             empty <- isEmpty
             if empty
               then return $ BC []
-              else do x <- getWord32le
+              else do x <- getWord8
                       BC xs <- go
                       return $ BC (x:xs)
 
@@ -127,7 +128,7 @@ bcc (IfZ i x y z) = do x' <- bcc x
                        z' <- bcc z
                        return (x' ++ [JUMP] ++ [(length y') + 2] ++ y' ++ [IJUMP] ++ [length z'] ++ z')
 bcc (Print i msg y) = do y' <- bcc y
-                         return ([PRINT] ++ (map ord msg) ++ [NULL] ++ y' ++ [PRINTN])
+                         return ([PRINT] ++ (string2bc msg) ++ [NULL] ++ y' ++ [PRINTN])
 
 bct :: MonadFD4 m => TTerm -> m Bytecode
 bct (App i x y ) = do x' <- bcc x
@@ -175,7 +176,7 @@ data MVal = MNat Int | MClos [MVal] Bytecode | MDir [MVal] Bytecode
 
 -- | Lee de un archivo y lo decodifica a bytecode
 bcRead :: FilePath -> IO Bytecode
-bcRead filename = (map fromIntegral <$> un32) . decode <$> BS.readFile filename
+bcRead filename = (map fromIntegral <$> un8) . decode <$> BS.readFile filename
 
 runBC :: MonadFD4 m => Bytecode -> m ()
 runBC bc = runBD' bc [] []
