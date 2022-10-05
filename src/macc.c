@@ -19,7 +19,236 @@
 STATIC_ASSERT(sizeof (int) >= sizeof (uint32_t));
 
 /* Habilitar impresión de traza? */
-#define TRACE 0
+//#define TRACE 0
+
+
+/*
+
+code offset = 0
+code -> [4 9 4 6 3 0 3 1 6 1 1 11 9 32 3 0 8 5 2 0 ...]
+*c = 4
+|s| = 0
+|e| = 0
+code offset = 11
+code -> [11 9 32 3 0 8 5 2 0 1 15 23 4 9 4 6 3 0 3 1 ...]
+*c = 11
+|s| = 1
+|e| = 0
+code offset = 12
+code -> [9 32 3 0 8 5 2 0 1 15 23 4 9 4 6 3 0 3 1 6 ...]
+*c = 9
+|s| = 0
+|e| = 1
+code offset = 46
+code -> [11 13 102 97 99 116 97 122 32 50 32 61 32 0 9 32 3 0 8 5 ...]
+*c = 11
+|s| = 1
+|e| = 1
+code offset = 47
+code -> [13 102 97 99 116 97 122 32 50 32 61 32 0 9 32 3 0 8 5 2 ...]
+*c = 13
+|s| = 0
+|e| = 2
+code offset = 60
+code -> [9 32 3 0 8 5 2 0 1 15 23 4 9 4 6 3 0 3 1 6 ...]
+*c = 9
+|s| = 0
+|e| = 2
+code offset = 94
+code -> [2 2 5 14 11 2 0 12 12 12 10]
+*c = 2
+|s| = 1
+|e| = 2
+code offset = 96
+code -> [5 14 11 2 0 12 12 12 10]
+*c = 5
+|s| = 2
+|e| = 2
+code offset = 62
+code -> [3 0 8 5 2 0 1 15 23 4 9 4 6 3 0 3 1 6 1 1 ...]
+*c = 3
+|s| = 1
+|e| = 4
+code offset = 64
+code -> [8 5 2 0 1 15 23 4 9 4 6 3 0 3 1 6 1 1 3 0 ...]
+*c = 8
+|s| = 2
+|e| = 4
+code offset = 71
+code -> [4 9 4 6 3 0 3 1 6 1 1 3 0 5 3 1 2 1 3 0 ...]
+*c = 4
+|s| = 1
+|e| = 4
+code offset = 82
+code -> [3 0 5 3 1 2 1 3 0 7 5 16 2 2 5 14 11 2 0 12 ...]
+*c = 3
+|s| = 2
+|e| = 4
+code offset = 84
+code -> [5 3 1 2 1 3 0 7 5 16 2 2 5 14 11 2 0 12 12 12 ...]
+*c = 5
+|s| = 3
+|e| = 4
+code offset = 73
+code -> [4 6 3 0 3 1 6 1 1 3 0 5 3 1 2 1 3 0 7 5 ...]
+*c = 4
+|s| = 2
+|e| = 5
+code offset = 81
+code -> [1 3 0 5 3 1 2 1 3 0 7 5 16 2 2 5 14 11 2 0 ...]
+*c = 1
+|s| = 3
+|e| = 5
+code offset = 85
+code -> [3 1 2 1 3 0 7 5 16 2 2 5 14 11 2 0 12 12 12 10]
+*c = 3
+|s| = 2
+|e| = 4
+code offset = 87
+code -> [2 1 3 0 7 5 16 2 2 5 14 11 2 0 12 12 12 10]
+*c = 2
+|s| = 3
+|e| = 4
+code offset = 89
+code -> [3 0 7 5 16 2 2 5 14 11 2 0 12 12 12 10]
+*c = 3
+|s| = 4
+|e| = 4
+code offset = 91
+code -> [7 5 16 2 2 5 14 11 2 0 12 12 12 10]
+*c = 7
+|s| = 5
+|e| = 4
+code offset = 92
+code -> [5 16 2 2 5 14 11 2 0 12 12 12 10]
+*c = 5
+|s| = 4
+|e| = 4
+code offset = 62
+code -> [3 0 8 5 2 0 1 15 23 4 9 4 6 3 0 3 1 6 1 1 ...]
+*c = 3
+|s| = 3
+|e| = 4
+code offset = 64
+code -> [8 5 2 0 1 15 23 4 9 4 6 3 0 3 1 6 1 1 3 0 ...]
+*c = 8
+|s| = 4
+|e| = 4
+code offset = 71
+code -> [4 9 4 6 3 0 3 1 6 1 1 3 0 5 3 1 2 1 3 0 ...]
+*c = 4
+|s| = 3
+|e| = 4
+code offset = 82
+code -> [3 0 5 3 1 2 1 3 0 7 5 16 2 2 5 14 11 2 0 12 ...]
+*c = 3
+|s| = 4
+|e| = 4
+code offset = 84
+code -> [5 3 1 2 1 3 0 7 5 16 2 2 5 14 11 2 0 12 12 12 ...]
+*c = 5
+|s| = 5
+|e| = 4
+code offset = 73
+code -> [4 6 3 0 3 1 6 1 1 3 0 5 3 1 2 1 3 0 7 5 ...]
+*c = 4
+|s| = 4
+|e| = 5
+code offset = 81
+code -> [1 3 0 5 3 1 2 1 3 0 7 5 16 2 2 5 14 11 2 0 ...]
+*c = 1
+|s| = 5
+|e| = 5
+code offset = 85
+code -> [3 1 2 1 3 0 7 5 16 2 2 5 14 11 2 0 12 12 12 10]
+*c = 3
+|s| = 4
+|e| = 4
+code offset = 87
+code -> [2 1 3 0 7 5 16 2 2 5 14 11 2 0 12 12 12 10]
+*c = 2
+|s| = 5
+|e| = 4
+code offset = 89
+code -> [3 0 7 5 16 2 2 5 14 11 2 0 12 12 12 10]
+*c = 3
+|s| = 6
+|e| = 4
+code offset = 91
+code -> [7 5 16 2 2 5 14 11 2 0 12 12 12 10]
+*c = 7
+|s| = 7
+|e| = 4
+code offset = 92
+code -> [5 16 2 2 5 14 11 2 0 12 12 12 10]
+*c = 5
+|s| = 6
+|e| = 4
+code offset = 62
+code -> [3 0 8 5 2 0 1 15 23 4 9 4 6 3 0 3 1 6 1 1 ...]
+*c = 3
+|s| = 5
+|e| = 4
+code offset = 64
+code -> [8 5 2 0 1 15 23 4 9 4 6 3 0 3 1 6 1 1 3 0 ...]
+*c = 8
+|s| = 6
+|e| = 4
+code offset = 66
+code -> [2 0 1 15 23 4 9 4 6 3 0 3 1 6 1 1 3 0 5 3 ...]
+*c = 2
+|s| = 5
+|e| = 4
+code offset = 68
+code -> [1 15 23 4 9 4 6 3 0 3 1 6 1 1 3 0 5 3 1 2 ...]
+*c = 1
+|s| = 6
+|e| = 4
+code offset = 93
+code -> [16 2 2 5 14 11 2 0 12 12 12 10]
+*c = 16
+|s| = 5
+|e| = 4
+code offset = 79
+code -> [6 1 1 3 0 5 3 1 2 1 3 0 7 5 16 2 2 5 14 11 ...]
+*c = 6
+|s| = 4
+|e| = 6
+code offset = 80
+code -> [1 1 3 0 5 3 1 2 1 3 0 7 5 16 2 2 5 14 11 2 ...]
+*c = 1
+|s| = 3
+|e| = 6
+code offset = 75
+code -> [3 0 3 1 6 1 1 3 0 5 3 1 2 1 3 0 7 5 16 2 ...]
+*c = 3
+|s| = 2
+|e| = 5
+code offset = 77
+code -> [3 1 6 1 1 3 0 5 3 1 2 1 3 0 7 5 16 2 2 5 ...]
+*c = 3
+|s| = 3
+|e| = 5
+code offset = 79
+code -> [6 1 1 3 0 5 3 1 2 1 3 0 7 5 16 2 2 5 14 11 ...]
+*c = 6
+|s| = 4
+|e| = 5
+code offset = 80
+code -> [1 1 3 0 5 3 1 2 1 3 0 7 5 16 2 2 5 14 11 2 ...]
+*c = 1
+|s| = 3
+|e| = 5
+code offset = 93
+code -> [16 2 2 5 14 11 2 0 12 12 12 10]
+*c = 16
+|s| = 2
+Segmentation fault
+*/
+
+
+
+
 
 enum {
 	RETURN   = 1,
@@ -36,7 +265,7 @@ enum {
 	DROP     = 12,
 	PRINT    = 13,
 	PRINTN   = 14,
-	CJUMP    = 15,
+	IJUMP    = 15,
 	TAILCALL = 16,
 };
 
@@ -195,11 +424,14 @@ void run(code init_c)
 		switch(*c++) {
 		case ACCESS: {
             uint32_t i = 0;
-            uint32_t offset = *(c+1);
+            uint32_t offset = *c++;
             env ec = e;
 
-            while (i < offset){ec = ec->next;}
-			(*s++) = ec->v;
+            while (i < offset) {
+				ec = ec->next;
+				i++;
+			}
+			*s++ = ec->v;
 			break;
 		}
 
@@ -214,8 +446,8 @@ void run(code init_c)
 			 * Suma: desapilamos los dos operandos, sumamos,
 			 * y apilamos el resultado.
 			 */
-			uint32_t y = (*--s).i;
 			uint32_t x = (*--s).i;
+			uint32_t y = (*--s).i;
 			(*s++).i = x+y;
 			break;
 		}
@@ -225,8 +457,8 @@ void run(code init_c)
 			 * Resta: ya tenemos los valores en el tope de la pila,
 			 * hacemos la resta solo si x > y, sino es 0.
 			 */
-			uint32_t y = (*--s).i;
 			uint32_t x = (*--s).i;
+			uint32_t y = (*--s).i;
 			(*s++).i = x > y ? x-y : 0;
 			break;
 		}
@@ -312,21 +544,24 @@ void run(code init_c)
 		}
 
 		case FIX: {
-			/*
-			 * Fixpoint: algo de magia. Tenemos una clausura en
-			 * la pila, donde su primer variable libre es el
-			 * binding recursivo. La modificamos para que el
-			 * entorno se apunte a sí mismo.
-			 */
-			value clo = *--s;
+			int leng = *c++;
 			env env_fix;
+			struct clo clo = {
+				.clo_env = env_fix,
+				.clo_body = c,
+			};
 
-			/* Atar el nudo! */
-			env_fix = env_push(e, clo);
-			(clo.clo).clo_env = env_fix;
-			env_fix->v = clo;
+			value val; val.clo = clo; 	// Valor de union (clausura)
 
-			(*s++) = clo;
+			env_fix = env_push(e, val);	// Pusheamos al env la clausura y lo guardamos en env_fix
+			
+			clo.clo_env = env_fix; 		// Actualizamos el valor de clo (que esta dentro de env ahora) con el nuevo valor de env_fix (queda circular)
+			env_fix->v.clo = clo; 		// El value de env_fix ahora es la clausura (ya que v es por copia)
+
+			(*s++).clo = clo; 			// Guardamos la clausura nueva en el stack.
+
+			/* Y saltamos de largo el cuerpo del fix */
+			c += leng;
 
 			break;
 		}
@@ -336,12 +571,11 @@ void run(code init_c)
 		}
 
 		case SHIFT: {
-            e = env_push(e, *--s);
+            e = env_push(e, (*--s));
 			break;
 		}
 
 		case DROP: {
-            *s++ = e->v;
 			e = e->next;
 			break;
 		}
@@ -356,9 +590,25 @@ void run(code init_c)
 			wchar_t wc;
 			while ((wc = *c++))
 				putwchar(wc);
-
 			break;
 		}
+
+		case JUMP: {
+			if ((*--s).i == 0) {
+				c++;
+			} else {
+				int lenght = *c++;
+				c += lenght;
+			}
+			break;
+		}
+
+		case IJUMP: {
+			int lenght = *c++;
+			c += lenght;
+			break;
+		}
+
 
 		default:
 			quit("FATAL: opcode no reconocido: %d", *(c-1));
