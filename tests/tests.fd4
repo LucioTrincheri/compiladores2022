@@ -1,12 +1,27 @@
-# Tests de ejercicio 1 y declaraciones sin azucar sintactico.
-let resta = fun(a:Nat) -> 
-                fun(b:Nat) ->
-                    a - b
+#Tests de ejercicio 1 y declaraciones sin azucar sintactico.
+#let resta = fun(a:Nat) -> 
+#                fun(b:Nat) ->
+#                    a - b
 
-let a = print "asdfasdfasdf" (resta 2000 1000)
+#let a = print "asdfasdfasdf" (resta 2000 1000)
 
-let mult = fix(mul: Nat->Nat->Nat)(m : Nat) -> fun(n : Nat) -> ifz n then 0 else (ifz n - 1 then m else m + (mul m (n - 1)))
+#let mult = fix(mul: Nat->Nat->Nat)(m : Nat) -> fun(n : Nat) -> ifz n then 0 else (ifz n - 1 then m else m + (mul m (n - 1)))
 
-let TestIfz = print "ifz 0 0 1 = " (ifz 0 then (1 + 5) else 1)
+#let TestIfz = print "ifz 0 = " (ifz 0 then (1 + 5) else 1)
+#let TestIfz2 = print "ifz 0 = " (ifz 0 then TestIfz else 1)
 
-let TestMult = print "mult 2 2 = " (mult 2 2)
+#let TestMult = print "mult 25 10 = " (mult 25 10)
+
+let h = fun (x y:Nat) -> x + y
+let g = fun (x :Nat) -> h x 1
+let f = fun (x :Nat) -> 1 + (g x)
+
+let test = print "" (f 2)
+
+
+#let rec factaz (m:Nat):Nat = ifz m then 0 else ((factaz (m - 1)) + (factaz (m - 1)))
+#let test = print "factaz 2 = " (factaz 2)
+#let rec f (x:Nat):Nat = f x
+#let testStack = f 0 
+#let suma = fun (x y: Nat) -> x + y
+#let hola = print "suma " (suma 1 1)

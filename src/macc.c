@@ -347,6 +347,38 @@ static int env_len(env e)
 	return rc;
 }
 
+static void env_print(env e, code init_c)
+{
+	fprintf(stderr, "[ ");
+	while (e) {
+		if (e->v.i > 1000 || e->v.i <= 0) {
+			fprintf(stderr, "(%li, ", e->v.clo.clo_body - init_c);
+			env_print(e->v.clo.clo_env, init_c);
+			fprintf(stderr, "), ");
+		} else {
+			fprintf(stderr, "%i, ", e->v.i);
+		}
+		e = e->next;
+	}
+	fprintf(stderr, "]");
+}
+
+static void stack_print(value* stack, value* s, code init_c)
+{
+	fprintf(stderr, "[ ");
+	while(stack != s) {
+		if (s->i > 1000 || s->i < 0) {
+			fprintf(stderr, "(%li, ", s->clo.clo_body - init_c);
+			env_print(s->clo.clo_env, init_c);
+			fprintf(stderr, "), ");
+		} else {
+			fprintf(stderr, "%i, ", s->i);
+		}
+		s--;
+	}
+	fprintf(stderr, "]");
+}
+
 void run(code init_c)
 {
 	/*
@@ -417,7 +449,11 @@ void run(code init_c)
 
 			fprintf(stderr, "*c = %d\n", *c);
 			fprintf(stderr, "|s| = %ld\n", s - stack);
+			stack_print(stack, s, init_c);
+			fprintf(stderr, "\n");
 			fprintf(stderr, "|e| = %d\n", env_len(e));
+			env_print(e, init_c);
+			fprintf(stderr, "\n");
 		}
 
 		/* Consumimos un opcode y lo inspeccionamos. */
@@ -571,7 +607,8 @@ void run(code init_c)
 		}
 
 		case SHIFT: {
-            e = env_push(e, (*--s));
+			value v = *--s;
+			e = env_push(e, v);
 			break;
 		}
 
