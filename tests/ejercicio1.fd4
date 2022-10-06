@@ -3,8 +3,11 @@ let resta = fun(a:Nat) ->
                 fun(b:Nat) ->
                     a - b
 
+let testRest = print "testResta" (resta 2 2)
+
 let mult = fix(mul: Nat->Nat->Nat)(m : Nat) -> fun(n : Nat) -> ifz n then 0 else (ifz n - 1 then m else m + (mul m (n - 1)))
 
+let testMult = mult 2 2
 
 let expo = fix(exp: Nat->Nat->Nat)(j : Nat)(k : Nat) -> 
             ifz k
@@ -89,13 +92,16 @@ let rsLetRec = fun x:Nat -> let rec exp (m : Nat)(n p: Nat):Nat =
 
 let ack = fix (ackm:Nat->Nat->Nat) (m:Nat) (n:Nat) -> ifz m then (n+1) else (ifz n then (ackm (m-1) 1) else (ackm (m-1) (ackm m (n-1))))
 
-let testAck = print "Ackermann 2 5 = " (ack 3 11)
+#let testAck = print "Ackermann 2 5 = " (ack 3 11)
 
 let TestFactaz = print "factaz 5 = " (factaz 5)
 
-let aa = 1 + 2
+#let aa = 1 + 2
 
-let bb = 2 - 1
+#let bb = mult 2 2
+
+#let asdf = ifz 0 then 0 else 1
+#let asdfdf = let (x:Nat) = 1 in x
 #let rec f (x:Nat):Nat = f x
 
 #let testStack = f 0 

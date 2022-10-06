@@ -136,12 +136,27 @@ bct (App i x y ) = do x' <- bcc x
 bct (IfZ i x y z) = do x' <- bcc x
                        y' <- bct y
                        z' <- bct z
-                       return (x' ++ [JUMP] ++ [(length y') + 2] ++ y' ++ [IJUMP] ++ [length z'] ++ z')
+                       return (x' ++ [JUMP] ++ [length y'] ++ y' ++ z')
 bct (Let i x xty y (Sc1 z)) = do y' <- bcc y
                                  z' <- bct z
                                  return (y' ++ [SHIFT] ++ z')
 bct x = do x' <- bcc x
            return (x' ++ [RETURN])
+
+
+bss :: MonadFD4 m => TTerm -> m Bytecode
+bss (IfZ i x y z) = do x' <- bcc x  
+                       y' <- bss y
+                       z' <- bss z
+                       return (x' ++ [JUMP] ++ [length y'] ++ y' ++ z')
+bss (Let i x xty y (Sc1 z)) = do y' <- bcc y
+                                 z' <- bss z
+                                 return (y' ++ [SHIFT] ++ z')
+bss x = do x' <- bcc x
+           return (x' ++ [STOP])
+
+
+-- La funcion bss puede salir por la aplicacion cuando no deberia
 
 -- ord/chr devuelven los codepoints unicode, o en otras palabras
 -- la codificación UTF-32 del caracter.
@@ -153,11 +168,11 @@ bc2string = map chr
 
 bytecompileModule :: MonadFD4 m => Module -> m Bytecode
 bytecompileModule i = do by <- (bytecompileModule' i)
-                         com <- (bcc by)
-                         return (com ++ [STOP])
+                         com <- (bss by)
+                         return com
 
 bytecompileModule' :: MonadFD4 m => Module -> m TTerm
-bytecompileModule' [] = return (Const (NoPos, NatTy) (CNat 0))
+bytecompileModule' ((Decl i name body):[]) = return body
 bytecompileModule' ((Decl i name body):xs) = do by <- (bytecompileModule' xs)
                                                 return (Let (i, (getTy body)) name (getTy body) body (close name by))
 
