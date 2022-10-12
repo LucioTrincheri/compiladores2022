@@ -22,8 +22,9 @@ import Common
 
 import qualified Data.ByteString.Lazy as BS
 import Data.Binary ( Word32, Binary(put, get), decode, encode )
-import Data.Binary.Put ( putWord32le )
-import Data.Binary.Get ( getWord32le, isEmpty )
+import Data.Binary.Put ( putWord32le, putWord8 )
+import Data.Binary.Get ( getWord32le, getWord8, isEmpty )
+import Data.Word
 
 import Data.List (intercalate)
 import Data.Char
@@ -31,18 +32,18 @@ import Data.Char
 type Opcode = Int
 type Bytecode = [Int]
 
-newtype Bytecode32 = BC { un32 :: [Word32] }
+newtype Bytecode32 = BC { un8 :: [Word8] }
 
 {- Esta instancia explica como codificar y decodificar Bytecode de 32 bits -}
 instance Binary Bytecode32 where
-  put (BC bs) = mapM_ putWord32le bs
+  put (BC bs) = mapM_ putWord8 bs
   get = go
     where go =
            do
             empty <- isEmpty
             if empty
               then return $ BC []
-              else do x <- getWord32le
+              else do x <- getWord8
                       BC xs <- go
                       return $ BC (x:xs)
 
@@ -78,9 +79,9 @@ pattern POP      = 17
 --función util para debugging: muestra el Bytecode de forma más legible.
 showOps :: Bytecode -> [String]
 showOps [] = []
-showOps (NULL:xs)        = "NULL" : showOps xs
+showOps (NULL:NULL:NULL:NULL:xs)        = "NULL" : showOps xs
 showOps (RETURN:xs)      = "RETURN" : showOps xs
-showOps (CONST:i:xs)     = ("CONST " ++  show i) : showOps xs
+showOps (CONST:i1:i2:i3:i4:xs)     = ("CONST " ++ (show (fourBytesToInt [i1,i2,i3,i4]))) : showOps xs 
 showOps (ACCESS:i:xs)    = "ACCESS" : show i : showOps xs
 showOps (FUNCTION:i:xs)  = "FUNCTION" : show i : showOps xs
 showOps (CALL:xs)        = "CALL" : showOps xs
@@ -102,10 +103,13 @@ showOps (x:xs)           = show x : showOps xs
 showBC :: Bytecode -> String
 showBC = intercalate "; " . showOps
 
+intTo4Bytes :: Int -> [Int]
+intTo4Bytes x = [mod (div x (256 ^ 3)) 256, mod (div x (256 ^ 2)) 256, mod (div x 256) 256, mod x 256]
+
 bcc :: MonadFD4 m => TTerm -> m Bytecode
 bcc (V i (Global x)) = failPosFD4 (fst i) "No deberia pasar nunca"
 bcc (V i (Bound x)) = return [ACCESS, x]                 
-bcc (Const i (CNat x)) = return [CONST, x]
+bcc (Const i (CNat x)) = return ([CONST] ++ intTo4Bytes x)
 bcc (Lam i x ty (Sc1 y)) = do y' <- bct y
                               return ([FUNCTION] ++ [(length y')] ++ y')
 bcc (App i x y ) = do x' <- bcc x
@@ -130,7 +134,7 @@ bcc (IfZ i x y z) = do x' <- bcc x
                        z' <- bcc z
                        return (x' ++ [JUMP] ++ [(length y') + 2] ++ y' ++ [IJUMP] ++ [length z'] ++ z')
 bcc (Print i msg y) = do y' <- bcc y
-                         return ([PRINT] ++ (map ord msg) ++ [NULL] ++ y' ++ [PRINTN])
+                         return ([PRINT] ++ (string2bc msg) ++ [NULL,NULL,NULL,NULL] ++ y' ++ [PRINTN])
 
 bct :: MonadFD4 m => TTerm -> m Bytecode
 bct (App i x y ) = do x' <- bcc x
@@ -170,11 +174,18 @@ bss x = do x' <- bcc x
 
 -- ord/chr devuelven los codepoints unicode, o en otras palabras
 -- la codificación UTF-32 del caracter.
+charTo32:: Char -> Bytecode
+charTo32 c = intTo4Bytes (ord c)
+
 string2bc :: String -> Bytecode
-string2bc = map ord
+string2bc s = concat (map charTo32 s)
+
+thirty2toChar:: Bytecode -> Char
+thirty2toChar xs = chr (fourBytesToInt xs)
 
 bc2string :: Bytecode -> String
-bc2string = map chr
+bc2string [] = []
+bc2string (i1:i2:i3:i4:s) = (thirty2toChar [i1,i2,i3,i4]) : (bc2string s)
 
 bytecompileModule :: MonadFD4 m => Module -> m Bytecode
 bytecompileModule i = do let i' = map (\(Decl a b t) -> (Decl a b (globalToFree t))) i
@@ -190,7 +201,8 @@ bytecompileModule' ((Decl i name body):xs) = do by <- (bytecompileModule' xs)
 -- | Toma un bytecode, lo codifica y lo escribe un archivo
 bcWrite :: Bytecode -> FilePath -> IO ()
 bcWrite bs filename = do 
-  BS.writeFile filename (encode $ BC $ fromIntegral <$> bs)
+  BS.writeFile filename (encode $ BC $ fromIntegral' <$> bs)
+  where fromIntegral' x = if x < 256 && x >= 0 then fromIntegral x else error "Msal codificado"
 
 ---------------------------
 -- * Ejecución de bytecode
@@ -201,7 +213,10 @@ data MVal = MNat Int | MClos [MVal] Bytecode | MDir [MVal] Bytecode
 
 -- | Lee de un archivo y lo decodifica a bytecode
 bcRead :: FilePath -> IO Bytecode
-bcRead filename = (map fromIntegral <$> un32) . decode <$> BS.readFile filename
+bcRead filename = (map fromIntegral <$> un8) . decode <$> BS.readFile filename
+
+fourBytesToInt :: Bytecode -> Int
+fourBytesToInt (i1:i2:i3:i4:xs) = (256 ^ 3) * i1 + (256 ^ 2) * i2 + 256 * i3 + i4
 
 runBC :: MonadFD4 m => Bytecode -> m ()
 runBC bc = runBD' bc [] []
@@ -209,7 +224,7 @@ runBC bc = runBD' bc [] []
 runBD' :: MonadFD4 m => Bytecode -> [MVal] -> [MVal] -> m ()
 runBD' (NULL:c) _ _ = printFD4 "No deberiamos llegar aca"
 runBD' (RETURN:_) _ (v:(MDir e c):s) = runBD' c e (v:s)
-runBD' (CONST:(n:c)) e s = runBD' c e ((MNat n):s)
+runBD' (CONST:i1:i2:i3:i4:c) e s = runBD' c e ((MNat (fourBytesToInt [i1,i2,i3,i4])):s)
 runBD' (ACCESS:(i:c)) e s  = runBD' c e ((e!!i):s)
 runBD' (FUNCTION:(fl:c)) e s = let c' = (drop fl c)
                              in runBD' c' e ((MClos e c):s)
@@ -223,9 +238,9 @@ runBD' (STOP:_) e s = printFD4 "Fin ejecucion"
 runBD' (SHIFT:c) e (v:s) = runBD' c (v:e) s
 runBD' (DROP:c) (v:e) s = runBD' c e s
 runBD' (PRINT:c) e s = runBD'' c e s
-                       where runBD'' (NULL:c) e s = runBD' c e s
-                             runBD'' (n:c) e s = do printFD4Char [(chr n)]
-                                                    runBD'' c e s
+                       where runBD'' (NULL:NULL:NULL:NULL:c) e s = runBD' c e s
+                             runBD'' (i1:i2:i3:i4:c) e s = do printFD4Char [(thirty2toChar [i1,i2,i3,i4])]
+                                                              runBD'' c e s
 -- runBD' (PRINT:c) e s = let (st, c') = splitAt NULL c
 --                       in do printFD4 (map chr st)
 --                             runBD' c' e s
