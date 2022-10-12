@@ -39,6 +39,7 @@ enum {
 	PRINTN   = 14,
 	IJUMP    = 15,
 	TAILCALL = 16,
+	POP 	 = 17,
 };
 
 #define quit(...)							\
@@ -388,6 +389,11 @@ void run(code init_c)
 		case DROP: {
 			assert(e);
 			e = e->next;
+			break;
+		}
+
+		case POP: {
+			s--;
 			break;
 		}
 

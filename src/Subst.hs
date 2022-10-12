@@ -36,6 +36,23 @@ varChanger local bound t = go 0 t where
   go n (BinaryOp p op t u) = BinaryOp p op (go n t) (go n u)
   go n (Let p v vty m (Sc1 o)) = Let p v vty (go n m) (Sc1 (go (n+1) o))
 
+varChanger2 :: (Int -> info -> Name -> Tm info Var) --que hacemos con las variables localmente libres
+           -> (Int -> info -> Int ->  Tm info Var) --que hacemos con los indices de De Bruijn
+           -> (Int -> info -> Name ->  Tm info Var) --que hacemos con los indices de De Bruijn
+           -> Tm info Var -> Tm info Var
+varChanger2 local bound global t = go 0 t where
+  go n   (V p (Bound i)) = bound n p i
+  go n   (V p (Free x)) = local n p x 
+  go n   (V p (Global x)) = global n p x
+  go n (Lam p y ty (Sc1 t))   = Lam p y ty (Sc1 (go (n+1) t))
+  go n (App p l r)   = App p (go n l) (go n r)
+  go n (Fix p f fty x xty (Sc2 t)) = Fix p f fty x xty (Sc2 (go (n+2) t))
+  go n (IfZ p c t e) = IfZ p (go n c) (go n t) (go n e)
+  go n t@(Const _ _) = t
+  go n (Print p str t) = Print p str (go n t)
+  go n (BinaryOp p op t u) = BinaryOp p op (go n t) (go n u)
+  go n (Let p v vty m (Sc1 o)) = Let p v vty (go n m) (Sc1 (go (n+1) o))
+
 -- `open n t` reemplaza la primera variable ligada
 -- en `t` (que debe ser un Scope con una sola variable que 
 -- escapa al término) por el nombre libre `n`.
@@ -46,6 +63,13 @@ open nm (Sc1 t) = varChanger (\_ p n -> V p (Free n)) bnd t
    where bnd depth p i | i <  depth = V p (Bound i)
                        | i == depth =  V p (Free nm)
                        | otherwise  = abort "open: M is not LC"
+
+-- escribir comentario
+betterOpen :: Name -> Scope info Var -> Tm info Var
+betterOpen nm (Sc1 t) = varChanger (\_ p n -> V p (Free n)) bnd t
+   where bnd depth p i | i <  depth = V p (Bound i)
+                       | i == depth =  V p (Free nm)
+                       | otherwise  = V p (Bound (i-1))
 
 -- `open2 n1 n2 t` reemplaza la primeras dos variables ligadas en `t`, que debe ser
 -- un Scope con dos variables ligadas que escapan al término.
@@ -119,3 +143,21 @@ close2 nm1 nm2 t = Sc2 (varChanger lcl (\_ p i -> V p (Bound i)) t)
   where lcl depth p y | y == nm2 = V p (Bound depth)
                       | y == nm1 = V p (Bound (depth + 1))
                       | otherwise = V p (Free y)
+
+
+countFree :: Tm info Var -> Int
+countFree (V p (Bound i)) = 0
+countFree (V p (Free x)) = 1
+countFree (V p (Global x)) = 0
+countFree (Lam p y ty (Sc1 t)) = countFree t
+countFree (App p l r)   = (countFree l) + (countFree r)
+countFree (Fix p f fty x xty (Sc2 t)) = (countFree t)
+countFree (IfZ p c t e) = (countFree c) + (countFree t) + (countFree e)
+countFree t@(Const _ _) = 0
+countFree (Print p str t) = countFree t
+countFree (BinaryOp p op t u) = (countFree t) + (countFree u)
+countFree (Let p v vty m (Sc1 o)) = (countFree m) + (countFree o)
+
+
+globalToFree :: TTerm -> TTerm
+globalToFree t = varChanger2 (\_ p n -> V p (Free n)) (\_ p n -> V p (Bound n)) (\_ p n -> V p (Free n)) t

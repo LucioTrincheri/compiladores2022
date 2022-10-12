@@ -73,6 +73,7 @@ pattern PRINT    = 13
 pattern PRINTN   = 14
 pattern IJUMP    = 15
 pattern TAILCALL = 16
+pattern POP      = 17
 
 --función util para debugging: muestra el Bytecode de forma más legible.
 showOps :: Bytecode -> [String]
@@ -95,16 +96,14 @@ showOps (PRINT:xs)       = let (msg,_:rest) = span (/=NULL) xs
                            in ("PRINT " ++ show (bc2string msg)) : showOps xs
 showOps (PRINTN:xs)      = "PRINTN" : showOps xs
 showOps (ADD:xs)         = "ADD" : showOps xs
+showOps (POP:xs)         = "POP" : showOps xs
 showOps (x:xs)           = show x : showOps xs
 
 showBC :: Bytecode -> String
 showBC = intercalate "; " . showOps
 
 bcc :: MonadFD4 m => TTerm -> m Bytecode
-bcc (V i (Global x)) = do var <- lookupDecl x
-                          case var of
-                            Just val -> bcc val 
-                            Nothing -> failPosFD4 (fst i) "Variable indefinida"
+bcc (V i (Global x)) = failPosFD4 (fst i) "No deberia pasar nunca"
 bcc (V i (Bound x)) = return [ACCESS, x]                 
 bcc (Const i (CNat x)) = return [CONST, x]
 bcc (Lam i x ty (Sc1 y)) = do y' <- bct y
@@ -120,8 +119,12 @@ bcc (BinaryOp i x y z ) = do y' <- bcc y
 bcc (Fix i x xty y yty (Sc2 z)) = do z' <- bct z
                                      return ([FIX] ++ [(length z')] ++ z')
 bcc (Let i x xty y (Sc1 z)) = do y' <- bcc y
-                                 z' <- bcc z
-                                 return (y' ++ [SHIFT] ++ z' ++ [DROP])
+                                 let oz = (betterOpen x (Sc1 z))
+                                 if (countFree z == countFree oz)
+                                 then do oz' <- bcc oz
+                                         return (y' ++ [POP] ++  oz')
+                                 else do z' <- bcc z
+                                         return (y' ++ [SHIFT] ++ z' ++ [DROP])
 bcc (IfZ i x y z) = do x' <- bcc x
                        y' <- bcc y
                        z' <- bcc z
@@ -138,11 +141,14 @@ bct (IfZ i x y z) = do x' <- bcc x
                        z' <- bct z
                        return (x' ++ [JUMP] ++ [length y'] ++ y' ++ z')
 bct (Let i x xty y (Sc1 z)) = do y' <- bcc y
-                                 z' <- bct z
-                                 return (y' ++ [SHIFT] ++ z')
+                                 let oz = (betterOpen x (Sc1 z))
+                                 if (countFree z == countFree oz)
+                                 then do oz' <- bct oz
+                                         return (y' ++ [POP] ++ oz')
+                                 else do z' <- bct z
+                                         return (y' ++ [SHIFT] ++ z')
 bct x = do x' <- bcc x
            return (x' ++ [RETURN])
-
 
 bss :: MonadFD4 m => TTerm -> m Bytecode
 bss (IfZ i x y z) = do x' <- bcc x  
@@ -150,8 +156,12 @@ bss (IfZ i x y z) = do x' <- bcc x
                        z' <- bss z
                        return (x' ++ [JUMP] ++ [length y'] ++ y' ++ z')
 bss (Let i x xty y (Sc1 z)) = do y' <- bcc y
-                                 z' <- bss z
-                                 return (y' ++ [SHIFT] ++ z')
+                                 let oz = (betterOpen x (Sc1 z))
+                                 if (countFree z == countFree oz)
+                                 then do oz' <- bss oz
+                                         return (y' ++ [POP] ++ oz')
+                                 else do z' <- bss z
+                                         return (y' ++ [SHIFT] ++ z')
 bss x = do x' <- bcc x
            return (x' ++ [STOP])
 
@@ -167,7 +177,8 @@ bc2string :: Bytecode -> String
 bc2string = map chr
 
 bytecompileModule :: MonadFD4 m => Module -> m Bytecode
-bytecompileModule i = do by <- (bytecompileModule' i)
+bytecompileModule i = do let i' = map (\(Decl a b t) -> (Decl a b (globalToFree t))) i
+                         by <- (bytecompileModule' i')
                          com <- (bss by)
                          return com
 
@@ -227,4 +238,5 @@ runBD' (JUMP:(tl:c)) e ((MNat n):s) = if n == 0
 runBD' (IJUMP:(fl:c)) e s = let c' = (drop fl c)
                             in runBD' c' e s
 runBD' (TAILCALL:c) e (!v:(MClos ef cf):s) = runBD' cf (v:ef) s
+runBD' (POP:c) e (v:s) = runBD' c e s
 runBD' _ _ _ = failFD4 "Error de ejecucion"
