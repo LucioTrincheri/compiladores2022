@@ -27,6 +27,7 @@ import Data.Binary.Get ( getWord32le, getWord8, isEmpty )
 import Data.Word
 
 import Data.List (intercalate)
+import Data.List.Split
 import Data.Char
 
 type Opcode = Int
@@ -93,8 +94,8 @@ showOps (STOP:xs)        = "STOP" : showOps xs
 showOps (JUMP:i:xs)      = "JUMP" : show i: showOps xs
 showOps (SHIFT:xs)       = "SHIFT" : showOps xs
 showOps (DROP:xs)        = "DROP" : showOps xs
-showOps (PRINT:xs)       = let (msg,_:rest) = span (/=NULL) xs
-                           in ("PRINT " ++ show (bc2string msg)) : showOps xs
+showOps (PRINT:xs)       = let (msg:rest) = splitOn [NULL,NULL,NULL,NULL] xs
+                           in ("PRINT " ++ show (bc2string msg)) : showOps (concat rest)
 showOps (PRINTN:xs)      = "PRINTN" : showOps xs
 showOps (ADD:xs)         = "ADD" : showOps xs
 showOps (POP:xs)         = "POP" : showOps xs
@@ -184,6 +185,7 @@ thirty2toChar:: Bytecode -> Char
 thirty2toChar xs = chr (fourBytesToInt xs)
 
 bc2string :: Bytecode -> String
+ -- bc2string (i1:i2:i3:i4:[]) = [(thirty2toChar [i1,i2,i3,i4])]
 bc2string [] = []
 bc2string (i1:i2:i3:i4:s) = (thirty2toChar [i1,i2,i3,i4]) : (bc2string s)
 
