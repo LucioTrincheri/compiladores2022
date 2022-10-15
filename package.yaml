@@ -34,7 +34,7 @@ dependencies:
 - prettyprinter-ansi-terminal
 - extra
 - text
-
+- split
 
 
 library:
