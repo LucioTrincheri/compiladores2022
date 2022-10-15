@@ -16,7 +16,7 @@
 	void _ass_ ## __FILE__ ## __LINE__ (char v[(p) ? 1 : -1])
 
 /* Necesitamos que un uint32_t (i.e. una instrucción) entre en un int. */
-STATIC_ASSERT(sizeof (int) >= sizeof (uint32_t));
+STATIC_ASSERT(sizeof (int) >= sizeof (uint8_t));
 
 /* Habilitar impresión de traza? */
 //#define TRACE 0
@@ -57,7 +57,7 @@ enum {
  * recorre opcode a opcode operando en la stack. Las más interesantes
  * involucran saltos y la construcción de clausuras.
  */
-typedef uint32_t *code;
+typedef uint8_t *code;
 
 /*
  * Un entorno es una lista enlazada de valores. Representan los valores
@@ -232,8 +232,8 @@ void run(code init_c)
 		/* Consumimos un opcode y lo inspeccionamos. */
 		switch(*c++) {
 		case ACCESS: {
-            uint32_t i = 0;
-            uint32_t offset = *c++;
+            uint8_t i = 0;
+            uint8_t offset = *c++;
             env ec = e;
 
             while (i < offset) {
@@ -246,7 +246,12 @@ void run(code init_c)
 
 		case CONST: {
 			/* Una constante: la leemos y la ponemos en la pila */
-			(*s++).i = *c++;
+			uint32_t entireInt = 0;
+			entireInt += (*c++) << 24;
+			entireInt += (*c++) << 16;
+			entireInt += (*c++) << 8;
+			entireInt += (*c++);
+			(*s++).i = entireInt;
 			break;
 		}
 
@@ -402,11 +407,18 @@ void run(code init_c)
 			wprintf(L"%" PRIu32 "\n", i);
 			break;
 		}
-
+	
 		case PRINT: {
 			wchar_t wc;
-			while ((wc = *c++))
+			do {
+				wc = 0;
+				wc += (*c++) << 24;
+				wc += (*c++) << 16;
+				wc += (*c++) << 8;
+				wc += (*c++);
 				putwchar(wc);
+			} while (wc);
+				// wprintf(L"%lc", wc);
 			break;
 		}
 
