@@ -37,6 +37,7 @@ import PPrint ( pp , ppTy, ppDecl )
 import MonadFD4
 import TypeChecker ( tc, tcDecl )
 import Bytecompile
+import Optimize
 
 prompt :: String
 prompt = "FD4> "
@@ -57,9 +58,9 @@ parseMode = (,) <$>
   -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
   -- <|> flag' Build ( long "build" <> short 'b' <> help "Compilar")
       )
-   <*> pure False
+   -- <*> pure False
    -- reemplazar por la siguiente línea para habilitar opción
-   -- <*> flag False True (long "optimize" <> short 'o' <> help "Optimizar código")
+      <*> flag False True (long "optimize" <> short 'o' <> help "Optimizar código")
 
 -- | Parser de opciones general, consiste de un modo y una lista de archivos a procesar
 parseArgs :: Parser (Mode,Bool, [FilePath])
@@ -185,10 +186,11 @@ handleDecl d = do
                           (case td of
                             Nothing -> return ()
                             Just tf ->
-                              do  addDecl tf
-                                  -- opt <- getOpt
-                                  -- td' <- if opt then optimize td else td
-                                  ppterm <- ppDecl tf  --td'
+                              -- hay que hacer esto en todos los otros casos de ejecución, para saber so optimizar o no.
+                               do opt <- getOpt
+                                  let td' = if opt then optimize tf else tf
+                                  addDecl td'
+                                  ppterm <- ppDecl td'
                                   printFD4 ppterm)
           InteractiveCEK -> do
                               a <- typecheckDecl d
