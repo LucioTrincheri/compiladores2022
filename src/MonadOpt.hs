@@ -1,3 +1,8 @@
+module MonadOpt where
+
+import Control.Monad.State
+
+
 newtype Changes a = Changes { runChanges :: Int -> (a, Int) }
 
 class Monad m => MonadOptimization m where
@@ -21,6 +26,7 @@ instance MonadOptimization Changes where
     add x = Changes (\i -> ((), x + i))
     total = Changes (\i -> (i, i))
 
+{-
 
 multipleFoldings :: MonadOptimization m => TTerm -> m ()
 -- Caso base no se que hacer: multipleFoldings ??? = ???
@@ -34,3 +40,15 @@ constantFolding (IfZ inf (Const _ (CNat 0)) true false) = do add 1
                                                              return true -- O puede hacer un add sobre la evaluacion de true
 constantFolding (IfZ inf (Const _ (CNat _)) true false) = do add 1
                                                              return false
+
+
+class (MonadState Int m) => MonadOpt m where
+
+add :: MonadOpt m => m ()
+add = modify (\s -> s + 1)
+
+type OPT = (StateT Int)
+
+-- | Esta es una instancia vacía, ya que 'MonadFD4' no tiene funciones miembro.
+instance MonadOpt OPT
+-}
