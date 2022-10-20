@@ -53,6 +53,7 @@ parseMode = (,) <$>
       <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
       <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
       <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
+      <|> flag Eval        Eval        (long "eval" <> short 'e' <> help "Evaluar programa")
   -- <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")
   -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonicalización")
   -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
@@ -168,6 +169,11 @@ parseIO filename p x = case runP p x filename of
                   Left e  -> throwError (ParseErr e)
                   Right r -> return r
 
+evalDecl :: MonadFD4 m => Decl TTerm -> m (Decl TTerm)
+evalDecl (Decl p x e) = do
+    e' <- eval e
+    return (Decl p x e')
+
 handleDecl ::  MonadFD4 m => SDecl STerm -> m ()
 handleDecl d = do
         m <- getMode
@@ -199,6 +205,10 @@ handleDecl d = do
                                 Just (Decl p x tt) -> 
                                   do te <- evalCEK tt
                                      addDecl (Decl p x te))
+          Eval -> do td <- typecheckDecl d
+                     -- td' <- if opt then optimizeDecl td else return td
+                     ed <- evalDecl td
+                     addDecl ed
           _ -> pure () -- Para los casos que no son necesarios considerar. Idem mas abajo
 
 
@@ -209,7 +219,6 @@ typecheckDecl dec = do  decT <- elabDeclType dec
                           Nothing -> return Nothing
                           Just tt -> do t' <- tcDecl tt
                                         return (Just t')
-
 
 
 data Command = Compile CompileForm
