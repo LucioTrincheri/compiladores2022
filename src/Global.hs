@@ -52,4 +52,4 @@ data Conf = Conf {
 
 -- | Valor del estado inicial
 initialEnv :: GlEnv
-initialEnv = GlEnv True "" 0 [] []
+initialEnv = GlEnv False "" 0 [] []

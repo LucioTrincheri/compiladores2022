@@ -100,6 +100,7 @@ runOrFail c m = do
 
 repl :: (MonadFD4 m, MonadMask m) => [FilePath] -> InputT m ()
 repl args = do
+       lift $ setInter True
        lift $ catchErrors $ mapM_ compileFile args
        s <- lift get
        when (inter s) $ liftIO $ putStrLn
