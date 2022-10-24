@@ -15,9 +15,11 @@ optimize (Decl n ty t) = Decl n ty (fst (runChanges (optimize' t) (StateOpt 0 []
 optimize' :: MonadOptimization m => TTerm -> m TTerm
 optimize' t = do t1 <- total
                  op <- return t
-                 op <- visit constantFolding op
                  op <- visit deadCodeElimination op
                  op <- visit inlineExpansion op
+                 op <- visit shiftAlg op
+                 op <- visit shiftConst op
+                 op <- visit constantFolding op
                  t2 <- total
                  if (t1 == t2) 
                  then return op
@@ -36,15 +38,29 @@ constantFolding (Let inf name ty var@(Const _ _) sc) = do add 1
                                                           constantFolding (subst var sc)
 constantFolding t = return t
 
+-- las variables x no pueden ser Nat
+-- El caso de 2 nats dejamos que se encargue constantFolding
+shiftAlg :: MonadOptimization m => TTerm -> m TTerm
+shiftAlg (BinaryOp inf Add (BinaryOp infi Add x y) z) = do add 1
+                                                           return (BinaryOp inf Add x (BinaryOp infi Add y z))
+shiftAlg t = return t 
+
+shiftConst :: MonadOptimization m => TTerm -> m TTerm
+shiftConst (BinaryOp inf Add c@(Const _ _) x) = do add 1 
+                                                   return (BinaryOp inf Add x c)
+shiftConst t = return t
+
 deadCodeElimination :: MonadOptimization m => TTerm -> m TTerm
 deadCodeElimination (App inf lm@(Lam _ name ty body) r) = do add 1
                                                              deadCodeElimination (Let inf name ty r body) -- Podria ser return
+--agregar chequedo de pureza antes de borrar.
 deadCodeElimination lt@(Let inf name ty var (Sc1 z)) = do let oz = (betterOpen name (Sc1 z))
-                                                          if (countFree z == countFree oz)
+                                                          if (countFree z == countFree oz && esPuro var)
                                                           then do add 1
                                                                   return oz
                                                           else return lt
 deadCodeElimination t = return t
+
 
 libres :: Name -> Tm info Var -> Int -> info -> Name -> Tm info Var
 libres name def i p n = if n == name then def else V p (Free n)
@@ -52,9 +68,18 @@ libres name def i p n = if n == name then def else V p (Free n)
 bounds :: Int -> info -> Int -> Tm info Var
 bounds i p n = V p (Bound n)
 
+-- funcion esPuro que te diga si es puro (para no eliminar efectos)
+
+-- def no tiene que tener efectos
+-- cuidado cruzar lambdas porque ahora puede utilizar la definicion multiples veces
 inlineExpansion :: MonadOptimization m => TTerm -> m TTerm
-inlineExpansion (Let inf name ty def z) = do add 1
-                                             return (subst def z)
+inlineExpansion t@(Let inf name ty def (Sc1 z)) = do let length = termLenght def
+                                                     let n = countBound 0 z
+                                                     if n == 1 || length < 5
+                                                     then replaceDef def z
+                                                     else return t
+                                                where replaceDef def z = do add 1
+                                                                            return (subst def (Sc1 z))
 inlineExpansion t = return t
 
 
@@ -75,15 +100,15 @@ visit f (BinaryOp inf op l r) = do l' <- visit f l
                                    f (BinaryOp inf op l' r')
 visit f (Lam inf sname ty b) = do name <- freshenM sname
                                   b' <- visit f (open name b)
-                                  f (Lam inf name ty (close name b'))
+                                  f (Lam inf sname ty (close name b'))
 visit f (Fix inf sname1 ty sname2 ty2 b) = do name1 <- freshenM sname1
                                               name2 <- freshenM sname2
                                               b' <- visit f (open2 name1 name2 b)
-                                              f (Fix inf name1 ty name2 ty2 (close2 name1 name2 b'))
+                                              f (Fix inf sname1 ty sname2 ty2 (close2 name1 name2 b'))
 visit f (Let inf sname ty var b) = do name <- freshenM sname
                                       v' <- visit f var
                                       b' <- visit f (open name b)
-                                      f (Let inf name ty v' (close name b'))
+                                      f (Let inf sname ty v' (close name b'))
 
 freshenM :: MonadOptimization m => Name -> m Name
 freshenM name = do env <- getNEnv

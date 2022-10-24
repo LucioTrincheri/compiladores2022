@@ -158,6 +158,32 @@ countFree (Print p str t) = countFree t
 countFree (BinaryOp p op t u) = (countFree t) + (countFree u)
 countFree (Let p v vty m (Sc1 o)) = (countFree m) + (countFree o)
 
+-- cuenta lacatidad de veces que aparezco dentro de lambdas.
+countBound :: Int -> Tm info Var -> Int
+countBound n (V p (Bound i)) = if i == n && n <> 0 then 1 else 0
+countBound n (V p (Free x)) = 0
+countBound n (V p (Global x)) = 0
+countBound n (Const _ _) = 0
+countBound n (Lam p y ty (Sc1 t)) = countBound (n+1) t
+countBound n (App p l r)   = (countBound n l) + (countBound n r)
+countBound n (Fix p f fty x xty (Sc2 t)) = (countBound (n+2) t)
+countBound n (IfZ p c t e) = (countBound n c) + (countBound n t) + (countBound n e)
+countBound n (Print p str t) = countBound n t
+countBound n (BinaryOp p op t u) = (countBound n t) + (countBound n u)
+countBound n (Let p v vty m (Sc1 o)) = (countBound n m) + (countBound (n+1) o)
+
+termLenght :: Tm info Var -> Int
+termLenght (V p (Bound i)) = 1
+termLenght (V p (Free x)) = 1
+termLenght (V p (Global x)) = 1
+termLenght (Const _ _) = 1
+termLenght (Lam p y ty (Sc1 t)) = 1 + termLenght t
+termLenght (App p l r)   = 1 + (termLenght l) + (termLenght r)
+termLenght (Fix p f fty x xty (Sc2 t)) = 1 + (termLenght t)
+termLenght (IfZ p c t e) = 1 + (termLenght c) + (termLenght t) + (termLenght e)
+termLenght (Print p str t) = 1 + termLenght t
+termLenght (BinaryOp p op t u) = 1 + (termLenght t) + (termLenght u)
+termLenght (Let p v vty m (Sc1 o)) = 1 + (termLenght m) + (termLenght o)
 
 globalToFree :: TTerm -> TTerm
 globalToFree t = varChanger2 (\_ p n -> V p (Free n)) (\_ p n -> V p (Bound n)) (\_ p n -> V p (Free n)) t
