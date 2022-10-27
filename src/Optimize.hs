@@ -38,24 +38,22 @@ constantFolding (Let inf name ty var@(Const _ _) sc) = do add 1
                                                           constantFolding (subst var sc)
 constantFolding t = return t
 
--- las variables x no pueden ser Nat
--- El caso de 2 nats dejamos que se encargue constantFolding
 shiftAlg :: MonadOptimization m => TTerm -> m TTerm
-shiftAlg (BinaryOp inf Add (BinaryOp infi Add x y) z) = do add 1
-                                                           return (BinaryOp inf Add x (BinaryOp infi Add y z))
-shiftAlg t = return t 
+
+shiftAlg (BinaryOp inf Add x (BinaryOp infi Add y z)) = do add 1
+                                                           return (BinaryOp inf Add (BinaryOp infi Add x y) z)
+shiftAlg t = return t
 
 shiftConst :: MonadOptimization m => TTerm -> m TTerm
-shiftConst (BinaryOp inf Add c@(Const _ _) x) = do add 1 
-                                                   return (BinaryOp inf Add x c)
+shiftConst (BinaryOp inf Add x c@(Const _ _)) = do add 1 
+                                                   return (BinaryOp inf Add c x)
 shiftConst t = return t
 
 deadCodeElimination :: MonadOptimization m => TTerm -> m TTerm
 deadCodeElimination (App inf lm@(Lam _ name ty body) r) = do add 1
                                                              deadCodeElimination (Let inf name ty r body) -- Podria ser return
---agregar chequedo de pureza antes de borrar.
 deadCodeElimination lt@(Let inf name ty var (Sc1 z)) = do let oz = (betterOpen name (Sc1 z))
-                                                          if (countFree z == countFree oz && esPuro var)
+                                                          if (countFree z == countFree oz && not (isPure var))
                                                           then do add 1
                                                                   return oz
                                                           else return lt
@@ -68,20 +66,15 @@ libres name def i p n = if n == name then def else V p (Free n)
 bounds :: Int -> info -> Int -> Tm info Var
 bounds i p n = V p (Bound n)
 
--- funcion esPuro que te diga si es puro (para no eliminar efectos)
-
--- def no tiene que tener efectos
--- cuidado cruzar lambdas porque ahora puede utilizar la definicion multiples veces
+-- asumimos un largo de 5 como corto.
 inlineExpansion :: MonadOptimization m => TTerm -> m TTerm
 inlineExpansion t@(Let inf name ty def (Sc1 z)) = do let length = termLenght def
                                                      let n = countBound 0 z
-                                                     if n == 1 || length < 5
-                                                     then replaceDef def z
+                                                     if n == 1 || (length < 5 && isPure def)
+                                                     then do add 1
+                                                             return (subst def (Sc1 z))
                                                      else return t
-                                                where replaceDef def z = do add 1
-                                                                            return (subst def (Sc1 z))
 inlineExpansion t = return t
-
 
 visit :: MonadOptimization m => (TTerm -> m TTerm) -> TTerm -> m TTerm
 visit f t@(V _ var) = f t
@@ -120,6 +113,18 @@ freshen :: [Name] -> Name -> Name
 freshen ns n = let cands = n : map (\i -> n ++ show i) [0..] 
                in head (filter (`notElem` ns) cands)
 
+isPure :: Tm info Var -> Bool
+isPure (V p (Bound i)) = True
+isPure (V p (Free x)) = True
+isPure (V p (Global x)) = True
+isPure (Const _ _) = True
+isPure (Lam p y ty (Sc1 t)) = isPure t
+isPure (App p l r)   = (isPure l) && (isPure r)
+isPure (Fix p f fty x xty (Sc2 t)) = (isPure t)
+isPure (IfZ p c t e) =(isPure c) && (isPure t) && (isPure e)
+isPure (Print p str t) = False
+isPure (BinaryOp p op t u) = (isPure t) && (isPure u)
+isPure (Let p v vty m (Sc1 o)) = (isPure m) && (isPure o)
 
 -- Como los lams que se aplicaban fueron reemplazados por lets, tenemos que ver en los lets si sustituimos o no. 
 -- Los fix son otra historia.

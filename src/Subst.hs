@@ -160,7 +160,7 @@ countFree (Let p v vty m (Sc1 o)) = (countFree m) + (countFree o)
 
 -- cuenta lacatidad de veces que aparezco dentro de lambdas.
 countBound :: Int -> Tm info Var -> Int
-countBound n (V p (Bound i)) = if i == n && n <> 0 then 1 else 0
+countBound n (V p (Bound i)) = if i == n && n /= 0 then 1 else 0
 countBound n (V p (Free x)) = 0
 countBound n (V p (Global x)) = 0
 countBound n (Const _ _) = 0
