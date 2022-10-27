@@ -1,5 +1,5 @@
 /* La Verdadera Macchina */
-
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -16,10 +16,11 @@
 	void _ass_ ## __FILE__ ## __LINE__ (char v[(p) ? 1 : -1])
 
 /* Necesitamos que un uint32_t (i.e. una instrucción) entre en un int. */
-STATIC_ASSERT(sizeof (int) >= sizeof (uint32_t));
+STATIC_ASSERT(sizeof (int) >= sizeof (uint8_t));
 
 /* Habilitar impresión de traza? */
-#define TRACE 0
+//#define TRACE 0
+
 
 enum {
 	RETURN   = 1,
@@ -36,8 +37,9 @@ enum {
 	DROP     = 12,
 	PRINT    = 13,
 	PRINTN   = 14,
-	CJUMP    = 15,
+	IJUMP    = 15,
 	TAILCALL = 16,
+	POP 	 = 17,
 };
 
 #define quit(...)							\
@@ -55,7 +57,7 @@ enum {
  * recorre opcode a opcode operando en la stack. Las más interesantes
  * involucran saltos y la construcción de clausuras.
  */
-typedef uint32_t *code;
+typedef uint8_t *code;
 
 /*
  * Un entorno es una lista enlazada de valores. Representan los valores
@@ -116,6 +118,38 @@ static int env_len(env e)
 		rc++;
 	}
 	return rc;
+}
+
+static void env_print(env e, code init_c)
+{
+	fprintf(stderr, "[ ");
+	while (e) {
+		if (e->v.i > 1000 || e->v.i < 0) {
+			fprintf(stderr, "(%li, ", e->v.clo.clo_body - init_c);
+			env_print(e->v.clo.clo_env, init_c);
+			fprintf(stderr, "), ");
+		} else {
+			fprintf(stderr, "%i, ", e->v.i);
+		}
+		e = e->next;
+	}
+	fprintf(stderr, "]");
+}
+
+static void stack_print(value* stack, value* s, code init_c)
+{
+	fprintf(stderr, "[ ");
+	while(stack != s) {
+		s--;
+		if (s->i > 1000 || s->i < 0) {
+			fprintf(stderr, "(%li, ", s->clo.clo_body - init_c);
+			env_print(s->clo.clo_env, init_c);
+			fprintf(stderr, "), ");
+		} else {
+			fprintf(stderr, "%i, ", s->i);
+		}
+	}
+	fprintf(stderr, "]");
 }
 
 void run(code init_c)
@@ -188,19 +222,36 @@ void run(code init_c)
 
 			fprintf(stderr, "*c = %d\n", *c);
 			fprintf(stderr, "|s| = %ld\n", s - stack);
+			//stack_print(stack, s, init_c);
+			fprintf(stderr, "\n");
 			fprintf(stderr, "|e| = %d\n", env_len(e));
+			//env_print(e, init_c);
+			fprintf(stderr, "\n");
 		}
 
 		/* Consumimos un opcode y lo inspeccionamos. */
 		switch(*c++) {
 		case ACCESS: {
-			/* implementame */
-			abort();
+            uint8_t i = 0;
+            uint8_t offset = *c++;
+            env ec = e;
+
+            while (i < offset) {
+				ec = ec->next;
+				i++;
+			}
+			*s++ = ec->v;
+			break;
 		}
 
 		case CONST: {
 			/* Una constante: la leemos y la ponemos en la pila */
-			(*s++).i = *c++;
+			uint32_t entireInt = 0;
+			entireInt += (*c++) << 24;
+			entireInt += (*c++) << 16;
+			entireInt += (*c++) << 8;
+			entireInt += (*c++);
+			(*s++).i = entireInt;
 			break;
 		}
 
@@ -209,8 +260,8 @@ void run(code init_c)
 			 * Suma: desapilamos los dos operandos, sumamos,
 			 * y apilamos el resultado.
 			 */
-			uint32_t y = (*--s).i;
 			uint32_t x = (*--s).i;
+			uint32_t y = (*--s).i;
 			(*s++).i = x+y;
 			break;
 		}
@@ -220,8 +271,8 @@ void run(code init_c)
 			 * Resta: ya tenemos los valores en el tope de la pila,
 			 * hacemos la resta solo si x > y, sino es 0.
 			 */
-			uint32_t y = (*--s).i;
 			uint32_t x = (*--s).i;
+			uint32_t y = (*--s).i;
 			(*s++).i = x > y ? x-y : 0;
 			break;
 		}
@@ -268,8 +319,15 @@ void run(code init_c)
 		}
 
 		case TAILCALL: {
-			/* implementame */
-			abort();
+			value arg = *--s;
+			value fun = *--s;
+
+			/* Cambiamos al entorno de la clausura, agregando arg */
+			e = env_push(fun.clo.clo_env, arg);
+
+			/* Saltamos! */
+			c = fun.clo.clo_body;
+			break;
 		}
 
 		case FUNCTION: {
@@ -301,21 +359,24 @@ void run(code init_c)
 		}
 
 		case FIX: {
-			/*
-			 * Fixpoint: algo de magia. Tenemos una clausura en
-			 * la pila, donde su primer variable libre es el
-			 * binding recursivo. La modificamos para que el
-			 * entorno se apunte a sí mismo.
-			 */
-			value clo = *--s;
+			int leng = *c++;
 			env env_fix;
+			struct clo clo = {
+				.clo_env = env_fix,
+				.clo_body = c,
+			};
 
-			/* Atar el nudo! */
-			env_fix = env_push(e, clo);
-			(clo.clo).clo_env = env_fix;
-			env_fix->v = clo;
+			value val; val.clo = clo; 	// Valor de union (clausura)
 
-			(*s++) = clo;
+			env_fix = env_push(e, val);	// Pusheamos al env la clausura y lo guardamos en env_fix
+			
+			clo.clo_env = env_fix; 		// Actualizamos el valor de clo (que esta dentro de env ahora) con el nuevo valor de env_fix (queda circular)
+			env_fix->v.clo = clo; 		// El value de env_fix ahora es la clausura (ya que v es por copia)
+
+			(*s++).clo = clo; 			// Guardamos la clausura nueva en el stack.
+
+			/* Y saltamos de largo el cuerpo del fix */
+			c += leng;
 
 			break;
 		}
@@ -325,13 +386,20 @@ void run(code init_c)
 		}
 
 		case SHIFT: {
-			/* implementame */
-			abort();
+			value v = *--s;
+			e = env_push(e, v);
+			break;
 		}
 
 		case DROP: {
-			/* implementame */
-			abort();
+			assert(e);
+			e = e->next;
+			break;
+		}
+
+		case POP: {
+			s--;
+			break;
 		}
 
 		case PRINTN: {
@@ -339,14 +407,37 @@ void run(code init_c)
 			wprintf(L"%" PRIu32 "\n", i);
 			break;
 		}
-
+	
 		case PRINT: {
 			wchar_t wc;
-			while ((wc = *c++))
+			do {
+				wc = 0;
+				wc += (*c++) << 24;
+				wc += (*c++) << 16;
+				wc += (*c++) << 8;
+				wc += (*c++);
 				putwchar(wc);
-
+			} while (wc);
+				// wprintf(L"%lc", wc);
 			break;
 		}
+
+		case JUMP: {
+			if ((*--s).i == 0) {
+				c++;
+			} else {
+				int lenght = *c++;
+				c += lenght;
+			}
+			break;
+		}
+
+		case IJUMP: {
+			int lenght = *c++;
+			c += lenght;
+			break;
+		}
+
 
 		default:
 			quit("FATAL: opcode no reconocido: %d", *(c-1));

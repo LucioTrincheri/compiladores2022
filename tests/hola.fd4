@@ -17,4 +17,3 @@ let ggg (x:Nat) (f : Nat -> Nat) : Nat =
 let ggg2 (x:Nat) (f : Nat -> Nat) : Nat -> Nat =
   let x :Nat = print "" (x+x+x+x+x+x) in
   (fun (y:Nat) -> x+y)
-

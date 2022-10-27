@@ -1,5 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE BangPatterns #-}
 {-|
 Module      : Bytecompile
 Description : Compila a bytecode. Ejecuta bytecode.
@@ -93,12 +94,19 @@ showOps (STOP:xs)        = "STOP" : showOps xs
 showOps (JUMP:i:xs)      = ("JUMP off=" ++ show i) : showOps xs
 showOps (SHIFT:xs)       = "SHIFT" : showOps xs
 showOps (DROP:xs)        = "DROP" : showOps xs
-showOps (PRINT:xs)       = let (msg:rest) = splitOn [NULL,NULL,NULL,NULL] xs
-                           in ("PRINT " ++ show (bc2string msg)) : showOps (concat rest)
+showOps (PRINT:xs)       = let (msg,rest) = splitOnNull xs
+                           in ("PRINT " ++ show (bc2string msg)) : showOps rest
 showOps (PRINTN:xs)      = "PRINTN" : showOps xs
 showOps (ADD:xs)         = "ADD" : showOps xs
 showOps (POP:xs)         = "POP" : showOps xs
 showOps (x:xs)           = show x : showOps xs
+
+splitOnNull :: Bytecode -> (Bytecode, Bytecode)
+splitOnNull (x1:x2:x3:x4:[]) = ([x1,x2,x3,x4], [])
+splitOnNull (x1:x2:x3:x4:xs) = if x1 == NULL && x2 == NULL &&  x3 == NULL &&  x4 ==  NULL
+                               then ([], xs)
+                               else let (x,y) = splitOnNull xs
+                                    in (x1:x2:x3:x4:x, y)
 
 showBC :: Bytecode -> String
 showBC = intercalate "; " . showOps
