@@ -12,4 +12,4 @@ let inc10 (x:Nat) : Nat =
   let x:Nat = inc x in
   x
 
-let _ : Nat = print "res = " (inc10 100)
+let _ = print "res = " (inc10 100)

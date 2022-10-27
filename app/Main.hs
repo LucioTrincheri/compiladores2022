@@ -49,7 +49,8 @@ parseMode :: Parser (Mode,Bool)
 parseMode = (,) <$>
       (flag' Typecheck ( long "typecheck" <> short 't' <> help "Chequear tipos e imprimir el término")
       <|> flag' InteractiveTypecheck (long "interactiveTypecheck" <> short 'Ǽ' <> help "Chequear tipos de manera interactiva") -- Extra
-      <|> flag' InteractiveCEK (long "interactiveCEK" <> short 'k' <> help "Ejecutar interactivamente en la CEK")
+      <|> flag' InteractiveCEK (long "icek" <> short 'k' <> help "Ejecutar interactivamente en la CEK")
+      <|> flag' CEK (long "cek" <> short 'c' <> help "Ejecutar CEK")
       <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
       <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
       <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
@@ -88,6 +89,8 @@ main = execParser opts >>= go
               runOrFail (Conf opt Bytecompile) $ mapM_ compileFile files
     go (RunVM, opt, files) =
               runOrFail (Conf opt RunVM) $ mapM_ compileFile files
+    go (CEK, opt, files) =
+              runOrFail (Conf opt CEK) $ mapM_ compileFile files
     go (m,opt, files) =
               runOrFail (Conf opt m) $ mapM_ compileFile files
 
@@ -146,7 +149,7 @@ compileFile f = do
                     setInter False
                     lf <- loadFile f
 
-                    mbl <- mapM elabDeclType lf
+                    mbl <- mapM elabDeclType lf -- El problema es que la monada aplica todas, por lo que addDecl no agrega FNat a la lista de tipos y las declaraciones posteriores no saben que existe hasta que se termina este mapM.
                     mbl2 <- mapM elabDecl mbl
                     let decls = concat (map maybeToList mbl2)
                     typedDecls <- mapM checkAndStore decls
@@ -155,7 +158,7 @@ compileFile f = do
 
                     comp <- bytecompileModule optDecls
                     printFD4 (showBC comp)
-                    liftIO $ bcWrite comp "file.bc"
+                    liftIO $ bcWrite comp ((init (init (init f))) ++ "bc8")
       RunVM -> do
                   lf <- liftIO $ bcRead f
                   runBC lf
@@ -172,9 +175,9 @@ parseIO filename p x = case runP p x filename of
                   Left e  -> throwError (ParseErr e)
                   Right r -> return r
 
-evalDecl :: MonadFD4 m => Decl TTerm -> m (Decl TTerm)
-evalDecl (Decl p x e) = do
-    e' <- eval e
+evalDecl :: MonadFD4 m => Decl TTerm -> (TTerm -> m TTerm) -> m (Decl TTerm)
+evalDecl (Decl p x e) evalArg = do
+    e' <- evalArg e
     return (Decl p x e')
 
 handleDecl ::  MonadFD4 m => SDecl STerm -> m ()
@@ -186,18 +189,19 @@ handleDecl d = do
           Just td -> do opt <- getOpt
                         let od = if opt then optimize td else td
                         case mode of
-                          Interactive -> do ed <- evalDecl od
+                          Interactive -> do ed <- evalDecl od eval
                                             addDecl ed
-                          Eval -> do ed <- evalDecl od
+                          Eval -> do ed <- evalDecl od eval
                                      addDecl ed
                           Typecheck -> do f <- getLastFile
                                           printFD4 ("Chequeando tipos de " ++ f)
                                           addDecl od
                                           ppterm <- ppDecl od
                                           printFD4 ppterm
-                          InteractiveCEK -> do let (Decl p x tt) = od
-                                               te <- evalCEK tt
-                                               addDecl (Decl p x te)
+                          InteractiveCEK -> do te <- evalDecl od evalCEK
+                                               addDecl te
+                          CEK -> do te <- evalDecl od evalCEK
+                                    addDecl te
                           _ -> pure () -- Para los casos que no son necesarios considerar. Idem mas abajo
 
 typecheckDecl :: MonadFD4 m => SDecl STerm -> m (Maybe (Decl TTerm))

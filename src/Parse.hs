@@ -225,9 +225,15 @@ declexp = do
   i <- getPos
   reserved "let"
   v <- var
-  reservedOp "="
-  def <- expr
-  return (SDecl i v def)
+  (do 
+    reservedOp ":"
+    typeP
+    reservedOp "="
+    def <- expr
+    return (SDecl i v def))
+    <|> (do reservedOp "="
+            def <- expr
+            return (SDecl i v def))
 
 declfun :: P (SDecl STerm)
 declfun = do

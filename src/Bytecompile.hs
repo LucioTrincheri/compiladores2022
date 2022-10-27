@@ -142,7 +142,7 @@ bcc (IfZ i x y z) = do x' <- bcc x
                        z' <- bcc z
                        return (x' ++ [JUMP] ++ [(length y') + 2] ++ y' ++ [IJUMP] ++ [length z'] ++ z')
 bcc (Print i msg y) = do y' <- bcc y
-                         return ([PRINT] ++ (string2bc msg) ++ [NULL,NULL,NULL,NULL] ++ y' ++ [PRINTN])
+                         return (y' ++ [PRINT] ++ (string2bc msg) ++ [NULL,NULL,NULL,NULL] ++ [PRINTN])
 
 bct :: MonadFD4 m => TTerm -> m Bytecode
 bct (App i x y ) = do x' <- bcc x
@@ -235,15 +235,15 @@ runBD' (NULL:c) _ _ = printFD4 "No deberiamos llegar aca"
 runBD' (RETURN:_) _ (v:(MDir e c):s) = runBD' c e (v:s)
 runBD' (CONST:i1:i2:i3:i4:c) e s = runBD' c e ((MNat (fourBytesToInt [i1,i2,i3,i4])):s)
 runBD' (ACCESS:(i:c)) e s  = runBD' c e ((e!!i):s)
-runBD' (FUNCTION:(fl:c)) e s = let c' = (drop fl c)
+runBD' (FUNCTION:(fl:c)) e s = let c' = (drop fl c) -- Para arreglar largo mayor a 256 cambiar fl por fourBytesToInt y en bcc guardar tambien 4 bytes
                              in runBD' c' e ((MClos e c):s)
 runBD' (CALL:c) e (v:(MClos ef cf):s) = runBD' cf (v:ef) ((MDir e c):s)
 runBD' (ADD:c) e ((MNat x):((MNat y):s)) = runBD' c e ((MNat (x+y)):s)
-runBD' (SUB:c) e ((MNat x):((MNat y):s)) = runBD' c e ((MNat (x-y)):s)
+runBD' (SUB:c) e ((MNat x):((MNat y):s)) = runBD' c e ((MNat (if x-y > 0 then x - y else 0)):s)
 runBD' (FIX:(fl:c)) e s = let c' = (drop fl c)
                               efix = (MClos efix c):e
                           in runBD' c' e ((MClos efix c):s)
-runBD' (STOP:_) e s = printFD4 "Fin ejecucion"
+runBD' (STOP:_) e s = return ()
 runBD' (SHIFT:c) e (v:s) = runBD' c (v:e) s
 runBD' (DROP:c) (v:e) s = runBD' c e s
 runBD' (PRINT:c) e s = runBD'' c e s

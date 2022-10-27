@@ -3,4 +3,4 @@ let test (x:Nat) : Nat =
   let _ : Nat = print "res = " res in
   res
 
-let x : Nat = test 999
+let x = test 999

@@ -19,21 +19,21 @@ let rec ack (m : Nat) (n : Nat) : Nat =
 let dead (x : Nat) : Nat = x + x
 
 # Const folding
-let l : Nat = ifz 0 then 1 else 2
-let r : Nat = ifz 1 then 1 else 2
+let l = ifz 0 then 1 else 2
+let r = ifz 1 then 1 else 2
 
-let n1 : Nat = 2 + (3 + 1) - (ack 1 (1 + 1))
+let n1 = 2 + (3 + 1) - (ack 1 (1 + 1))
 
 # Inlining
 let big (x : Nat) : Nat = succ (succ (succ (succ (succ x))))
 let rec small (x : Nat) : Nat = x + 5
 
-let n2 : Nat = (small (small (small (small (small 2))))) + (big 2)
+let n2 = (small (small (small (small (small 2))))) + (big 2)
 
-let DEBUG : Nat = 1
+let DEBUG = 1
 let f2 (x : Nat) : Nat = x + 5
 let f1 (x : Nat) : Nat = f2 x
 
-let x : Nat = ifz DEBUG then f2 5 else f1 (2 + 3)
+let x = ifz DEBUG then f2 5 else f1 (2 + 3)
 
-let n3 : Nat = print (ack 3 2 + n2 + x)
+let n3 = print (ack 3 2 + n2 + x)

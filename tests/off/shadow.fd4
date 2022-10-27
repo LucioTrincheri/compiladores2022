@@ -3,4 +3,4 @@ let f (x:Nat) : Nat =
   let x : Nat = x in
   x
 
-let _ : Nat = print "" (f 17)
+let _ = print "" (f 17)
