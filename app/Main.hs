@@ -138,7 +138,6 @@ checkAndStore :: MonadFD4 m => Decl Term -> m (Decl TTerm)
 checkAndStore d = do t' <- tcDecl d
                      addDecl t'
                      return t'
-                     
 
 compileFile ::  MonadFD4 m => FilePath -> m ()
 compileFile f = do
@@ -160,8 +159,8 @@ compileFile f = do
                     printFD4 (showBC comp)
                     liftIO $ bcWrite comp ((init (init (init f))) ++ "bc8")
       RunVM -> do
-                  lf <- liftIO $ bcRead f
-                  runBC lf
+                    lf <- liftIO $ bcRead f
+                    runBC lf
       _ -> do 
                     i <- getInter
                     setInter False

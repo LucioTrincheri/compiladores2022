@@ -211,7 +211,7 @@ bytecompileModule' ((Decl i name body):xs) = do by <- (bytecompileModule' xs)
 bcWrite :: Bytecode -> FilePath -> IO ()
 bcWrite bs filename = do 
   BS.writeFile filename (encode $ BC $ fromIntegral' <$> bs)
-  where fromIntegral' x = if x < 256 && x >= 0 then fromIntegral x else error "Msal codificado"
+  where fromIntegral' x = if x < 256 && x >= 0 then fromIntegral x else error "Mal codificado"
 
 ---------------------------
 -- * Ejecución de bytecode

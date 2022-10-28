@@ -12,6 +12,7 @@
 #include <wchar.h>
 #include <locale.h>
 
+
 #define STATIC_ASSERT(p)			\
 	void _ass_ ## __FILE__ ## __LINE__ (char v[(p) ? 1 : -1])
 
@@ -416,7 +417,8 @@ void run(code init_c)
 				wc += (*c++) << 16;
 				wc += (*c++) << 8;
 				wc += (*c++);
-				putwchar(wc);
+				if (wc != 0)
+					putwchar(wc);
 			} while (wc);
 				// wprintf(L"%lc", wc);
 			break;
