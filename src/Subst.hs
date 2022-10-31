@@ -157,6 +157,20 @@ countFree (Print p str t) = countFree t
 countFree (BinaryOp p op t u) = (countFree t) + (countFree u)
 countFree (Let p v vty m (Sc1 o)) = (countFree m) + (countFree o)
 
+getFree :: Tm info Var -> [Name]
+getFree (V p (Bound i)) = []
+getFree (V p (Free x)) = [x]
+getFree (V p (Global x)) = []
+getFree (Lam p y ty (Sc1 t)) = getFree t
+getFree (App p l r)   = (getFree l) ++ (getFree r)
+getFree (Fix p f fty x xty (Sc2 t)) = (getFree t)
+getFree (IfZ p c t e) = (getFree c) ++ (getFree t) ++ (getFree e)
+getFree t@(Const _ _) = []
+getFree (Print p str t) = getFree t
+getFree (BinaryOp p op t u) = (getFree t) ++ (getFree u)
+getFree (Let p v vty m (Sc1 o)) = (getFree m) ++ (getFree o)
+
+
 -- cuenta lacatidad de veces que aparezco dentro de lambdas.
 countBound :: Int -> Tm info Var -> Int
 countBound n (V p (Bound i)) = if i == n && n /= 0 then 1 else 0
