@@ -38,6 +38,9 @@ import MonadFD4
 import TypeChecker ( tc, tcDecl )
 import Bytecompile
 import Optimize
+import ClosureConvert
+import C
+import IR
 
 prompt :: String
 prompt = "FD4> "
@@ -55,7 +58,7 @@ parseMode = (,) <$>
       <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
       <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
       <|> flag Eval        Eval        (long "eval" <> short 'e' <> help "Evaluar programa")
-  -- <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")
+      <|> flag' CC ( long "cc" <> short 's' <> help "Compilar a código C")
   -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonicalización")
   -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
   -- <|> flag' Build ( long "build" <> short 'b' <> help "Compilar")
@@ -91,6 +94,8 @@ main = execParser opts >>= go
               runOrFail (Conf opt RunVM) $ mapM_ compileFile files
     go (CEK, opt, files) =
               runOrFail (Conf opt CEK) $ mapM_ compileFile files
+    go (CC, opt, files) =
+              runOrFail (Conf opt CC) $ mapM_ compileFile files
     go (m,opt, files) =
               runOrFail (Conf opt m) $ mapM_ compileFile files
 
@@ -161,6 +166,21 @@ compileFile f = do
       RunVM -> do
                     lf <- liftIO $ bcRead f
                     runBC lf
+      CC -> do
+                    setInter False
+                    lf <- loadFile f
+
+                    mbl <- mapM elabDeclType lf -- El problema es que la monada aplica todas, por lo que addDecl no agrega FNat a la lista de tipos y las declaraciones posteriores no saben que existe hasta que se termina este mapM.
+                    mbl2 <- mapM elabDecl mbl
+                    let decls = concat (map maybeToList mbl2)
+                    typedDecls <- mapM checkAndStore decls
+
+                    let optDecls = if opt then map optimize typedDecls else typedDecls
+                    printFD4 (show optDecls)
+                    let comp = runCC optDecls
+                        irDecl = ir2C (IrDecls comp)
+                    printFD4 (show irDecl)
+                    --liftIO $ bcWrite comp ((init (init (init f))) ++ "c")
       _ -> do 
                     i <- getInter
                     setInter False
