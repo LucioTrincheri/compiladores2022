@@ -179,8 +179,8 @@ compileFile f = do
                     printFD4 (show optDecls)
                     let comp = runCC optDecls
                         irDecl = ir2C (IrDecls comp)
-                    printFD4 (show irDecl)
-                    --liftIO $ bcWrite comp ((init (init (init f))) ++ "c")
+                    printFD4 (show comp)
+                    liftIO $ writeFile ((init (init (init f))) ++ "c") irDecl
       _ -> do 
                     i <- getInter
                     setInter False
