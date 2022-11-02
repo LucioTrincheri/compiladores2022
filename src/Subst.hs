@@ -157,9 +157,9 @@ countFree (Print p str t) = countFree t
 countFree (BinaryOp p op t u) = (countFree t) + (countFree u)
 countFree (Let p v vty m (Sc1 o)) = (countFree m) + (countFree o)
 
-getFree :: Tm info Var -> [Name]
+getFree :: TTerm -> [(Name, Ty)]
 getFree (V p (Bound i)) = []
-getFree (V p (Free x)) = [x]
+getFree (V p (Free x)) = [(x, snd p)]
 getFree (V p (Global x)) = []
 getFree (Lam p y ty (Sc1 t)) = getFree t
 getFree (App p l r)   = (getFree l) ++ (getFree r)

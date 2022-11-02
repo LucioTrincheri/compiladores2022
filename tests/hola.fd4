@@ -21,9 +21,20 @@
   
 #let banana = (fun (y:Nat->Nat) -> print "" (y 1)) (fun (x:Nat) -> x + 1)
 #let banana = let a:Nat = 2 in let b:Nat = 2 in (fun (x:Nat) -> print "" (x + a + b))  2
-let banana = let a:Nat = 2
-                    in let f (y:Nat):Nat =
-                    let b:Nat = 4 in
-                    let g (z:Nat):Nat = z + a + b
-                    in y + g 5
-                    in print "" (f 3)
+#let banana = let a:Nat = 2
+#                    in let f (y:Nat):Nat =
+#                    let b:Nat = 4 in
+#                    let g (z:Nat):Nat = z + a + b
+#                    in y + g 5
+#                    in print "" (f 3)
+
+#let f (x:Nat) : Nat -> Nat = fun (y:Nat) -> x+y
+let mult = fix(mul: Nat->Nat->Nat)(m : Nat) -> fun(n : Nat) -> ifz n then 0 else (ifz n - 1 then m else m + (mul m (n - 1)))
+
+let rec factaz (m:Nat):Nat = ifz m then 1 else mult m (factaz (m - 1))
+
+let testMult = print "" (factaz 5)
+
+let ack = fix (ackm:Nat->Nat->Nat) (m:Nat) (n:Nat) -> ifz m then (n+1) else (ifz n then (ackm (m-1) 1) else (ackm (m-1) (ackm m (n-1))))
+
+let testAck = print "Ackermann 2 5 = " (ack 3 11)

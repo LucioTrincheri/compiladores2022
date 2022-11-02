@@ -13,11 +13,13 @@ tyToirty NatTy = IrInt
 tyToirty (FunTy _ _) = IrClo
 
 runCC :: [Decl TTerm] -> [IrDecl]
-runCC decls = concatMap (\(Decl _ _ t) -> runCC' t) decls
+runCC decls = let ((x,z),y) = runWriter $ runStateT (mapM (\(Decl _ name t) -> (runCC' name t)) decls) 0
+              in y
 
-runCC' :: TTerm -> [IrDecl]
-runCC' t = let ((x,z),y) = (runWriter ( runStateT (closureConvert t) 0 ))
-           in (IrVal "main" IrClo x):y
+runCC' :: Name -> TTerm -> StateT Int (Writer [IrDecl]) ()
+runCC' name t = do irt <- closureConvert t
+                   tell [(IrVal name (tyToirty (snd (getInfo t))) irt)]
+                   return ()
 
 closureConvert :: TTerm -> StateT Int (Writer [IrDecl]) Ir
     -- si no es 0 no referencia al lam actual
@@ -50,7 +52,20 @@ closureConvert (App (i, ty) l r)  = do
     let clos = auxClos ++ "_clos"
     -- [[f x]] = let clos = [[f]] in clos[0] (clos, [[x]])
     return (IrLet clos IrClo irl (IrCall (IrAccess (IrVar clos) IrClo 0) [(IrVar clos), irr] (tyToirty ty)))
-closureConvert (Fix p f fty x xty (Sc2 t)) = error "Fix"
+closureConvert tt@(Fix p f fty x xty t) = do
+    varName <- getNewName
+    fName <- getNewName
+    clos <- getNewName
+    let codef = clos ++ "f"
+    let nenv = getFree tt
+    let obody = open2 fName varName t
+    irtt <- closureConvert obody
+    let irtt' = foldl (makeLet nenv clos) irtt nenv
+    let irtt'' = IrLet fName IrFunTy (IrVar clos) irtt'
+    let decl = IrFun codef (tyToirty fty) [(clos, IrClo), (varName, tyToirty xty)] irtt''
+    tell [decl]
+    return (MkClosure codef (map (\x -> IrVar (fst x)) nenv))
+
 closureConvert tt@(Lam (pos, fty) name ty body) = do
     varName <- getNewName
     clos <- getNewName
@@ -61,13 +76,13 @@ closureConvert tt@(Lam (pos, fty) name ty body) = do
     let irtt' = foldl (makeLet nenv clos) irtt nenv
     let decl = IrFun codef (tyToirty fty) [(clos, IrClo), (varName, tyToirty ty)] irtt'
     tell [decl]
-    return (MkClosure codef (map (\x -> IrVar x) nenv))
+    return (MkClosure codef (map (\x -> IrVar (fst x)) nenv))
  
 
-makeLet nenv cname y x = case elemIndex x nenv of
+makeLet nenv cname y (x, ty) = case elemIndex x (map fst nenv) of
         Nothing -> error "Error de apertura de Variables"
         -- el tipo debe corresponder con el de la variable, IrInt no esta bien.
-        Just n -> IrLet x IrInt (IrAccess (IrVar cname) IrInt (n + 1)) y
+        Just n -> IrLet x (tyToirty ty) (IrAccess (IrVar cname) IrInt (n + 1)) y
    
  
 
