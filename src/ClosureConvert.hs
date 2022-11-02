@@ -43,31 +43,33 @@ closureConvert (Let p v vty def body) = do
     let obody = open (v ++ name) body
     cbody <- closureConvert obody
     return (IrLet (v ++ name) (tyToirty vty) irdef cbody)
-closureConvert tt@(App (i, ty) l r)  = do
+closureConvert (App (i, ty) l r)  = do
     irl <- closureConvert l
     irr <- closureConvert r
-    fname <- getNewName
-    let newdef = IrVar fname
-    return (IrLet fname IrClo irl (IrCall (IrAccess (IrVar fname) IrClo 0) [newdef, irr] (tyToirty ty)))
+    auxClos <- getNewName
+    let clos = auxClos ++ "_clos"
+    -- [[f x]] = let clos = [[f]] in clos[0] (clos, [[x]])
+    -- IrClo es correcto??
+    return (IrLet clos IrClo irl (IrCall (IrAccess (IrVar clos) IrClo 0) [(IrVar clos), irr] (tyToirty ty)))
 closureConvert (Fix p f fty x xty (Sc2 t)) = error "Fix"
 closureConvert tt@(Lam (pos, fty) name ty body) = do
-    irname <- getNewName
-    mkname <- getNewName
-    let fname = mkname ++ "f"
-    let obody = open irname body
-    let nenv = (filter (\x -> not (x == irname)) (getFree obody))
+    varName <- getNewName
+    clos <- getNewName
+    let codef = clos ++ "f"
+    let obody = open varName body
+    -- variables que escapan (busco todos los free y saco el argumento de la funcion)
+    let nenv = (filter (\x -> not (x == varName)) (getFree obody))
     irtt <- closureConvert obody
-    -- crear un let para bindindear cada nombre libre de nenv con su ir correspondiente.
-    -- para obtener los ir 
-    let irtt' = foldl (makeLet nenv mkname) irtt nenv
-    let decl = IrFun fname (tyToirty fty) [(mkname, IrClo), (irname, tyToirty ty)] irtt'
+    let irtt' = foldl (makeLet nenv clos) irtt nenv
+    let decl = IrFun codef (tyToirty fty) [(clos, IrClo), (varName, tyToirty ty)] irtt'
     tell [decl]
-    return (MkClosure fname (map (\x -> IrVar x) nenv)) -- Los nombres de nenv pasan a ser nombres de Ir simplemente.
+    return (MkClosure codef (map (\x -> IrVar x) nenv)) -- Los nombres de nenv pasan a ser nombres de Ir simplemente.
  
 
 makeLet nenv cname y x = case elemIndex x nenv of
         Nothing -> error "Error de apertura de Variables"
-        Just n -> IrLet x IrFunTy (IrAccess (IrVar cname) IrInt (n + 1)) y
+        -- el tipo debe corresponder con el de la variable, IrInt no esta bien.
+        Just n -> IrLet x IrInt (IrAccess (IrVar cname) IrInt (n + 1)) y
    
  
 
