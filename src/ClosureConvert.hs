@@ -49,7 +49,6 @@ closureConvert (App (i, ty) l r)  = do
     auxClos <- getNewName
     let clos = auxClos ++ "_clos"
     -- [[f x]] = let clos = [[f]] in clos[0] (clos, [[x]])
-    -- IrClo es correcto??
     return (IrLet clos IrClo irl (IrCall (IrAccess (IrVar clos) IrClo 0) [(IrVar clos), irr] (tyToirty ty)))
 closureConvert (Fix p f fty x xty (Sc2 t)) = error "Fix"
 closureConvert tt@(Lam (pos, fty) name ty body) = do
@@ -57,13 +56,12 @@ closureConvert tt@(Lam (pos, fty) name ty body) = do
     clos <- getNewName
     let codef = clos ++ "f"
     let obody = open varName body
-    -- variables que escapan (busco todos los free y saco el argumento de la funcion)
-    let nenv = (filter (\x -> not (x == varName)) (getFree obody))
+    let nenv = getFree tt
     irtt <- closureConvert obody
     let irtt' = foldl (makeLet nenv clos) irtt nenv
     let decl = IrFun codef (tyToirty fty) [(clos, IrClo), (varName, tyToirty ty)] irtt'
     tell [decl]
-    return (MkClosure codef (map (\x -> IrVar x) nenv)) -- Los nombres de nenv pasan a ser nombres de Ir simplemente.
+    return (MkClosure codef (map (\x -> IrVar x) nenv))
  
 
 makeLet nenv cname y x = case elemIndex x nenv of
