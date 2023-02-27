@@ -53,7 +53,7 @@ deadCodeElimination :: MonadOptimization m => TTerm -> m TTerm
 deadCodeElimination (App inf lm@(Lam _ name ty body) r) = do add 1
                                                              deadCodeElimination (Let inf name ty r body) -- Podria ser return
 deadCodeElimination lt@(Let inf name ty var (Sc1 z)) = do let oz = (betterOpen name (Sc1 z))
-                                                          if (countFree z == countFree oz && not (isPure var))
+                                                          if (countFree z == countFree oz && isPure var)
                                                           then do add 1
                                                                   return oz
                                                           else return lt
@@ -116,7 +116,10 @@ freshen ns n = let cands = n : map (\i -> n ++ show i) [0..]
 isPure :: Tm info Var -> Bool
 isPure (V p (Bound i)) = True
 isPure (V p (Free x)) = True
-isPure (V p (Global x)) = True
+-- Si encuentro una declaracion global, no puedo determinar en esta instancia si es pura o no.
+-- Para solucionar esto se podria optimizar el programa luego de juntar todas las declaraciones
+-- en un gran let in.
+isPure (V p (Global x)) = False
 isPure (Const _ _) = True
 isPure (Lam p y ty (Sc1 t)) = isPure t
 isPure (App p l r)   = (isPure l) && (isPure r)

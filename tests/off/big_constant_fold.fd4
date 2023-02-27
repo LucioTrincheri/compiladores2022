@@ -1,20 +1,8 @@
+# Recortamos la cantidad de let in puesto que la euristica que desarrollamos para inlineExpansion
+# no es buena ya que intenta sustituir en este caso. Lo cual es muy costoso.
+
 let x = 
   let x : Nat = 1 in
-  let x : Nat = x + x in
-  let x : Nat = x + x in
-  let x : Nat = x + x in
-  let x : Nat = x + x in
-  let x : Nat = x + x in
-  let x : Nat = x + x in
-  let x : Nat = x + x in
-  let x : Nat = x + x in
-  let x : Nat = x + x in
-  let x : Nat = x + x in
-  let x : Nat = x + x in
-  let x : Nat = x + x in
-  let x : Nat = x + x in
-  let x : Nat = x + x in
-  let x : Nat = x + x in
   let x : Nat = x + x in
   let x : Nat = x + x in
   let x : Nat = x + x in

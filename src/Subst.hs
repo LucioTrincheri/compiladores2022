@@ -144,6 +144,8 @@ close2 nm1 nm2 t = Sc2 (varChanger lcl (\_ p i -> V p (Bound i)) t)
                       | otherwise = V p (Free y)
 
 
+-- Funciones auxiliares útiles.
+
 countFree :: Tm info Var -> Int
 countFree (V p (Bound i)) = 0
 countFree (V p (Free x)) = 1

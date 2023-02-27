@@ -250,6 +250,7 @@ runBD' (PRINT:c) e s = runBD'' c e s
                        where runBD'' (NULL:NULL:NULL:NULL:c) e s = runBD' c e s
                              runBD'' (i1:i2:i3:i4:c) e s = do printFD4Char [(thirty2toChar [i1,i2,i3,i4])]
                                                               runBD'' c e s
+-- Otra opcion para print.
 -- runBD' (PRINT:c) e s = let (st, c') = splitAt NULL c
 --                       in do printFD4 (map chr st)
 --                             runBD' c' e s
