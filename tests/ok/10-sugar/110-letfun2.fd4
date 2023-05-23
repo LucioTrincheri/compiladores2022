@@ -1,0 +1,3 @@
+let f (x : Nat) : Nat -> Nat = fun (y : Nat) -> x+y
+
+let test = f 10 20

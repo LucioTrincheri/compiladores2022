@@ -38,6 +38,9 @@ import MonadFD4
 import TypeChecker ( tc, tcDecl )
 import Bytecompile
 import Optimize
+import ClosureConvert
+import C
+import IR
 
 prompt :: String
 prompt = "FD4> "
@@ -48,12 +51,14 @@ prompt = "FD4> "
 parseMode :: Parser (Mode,Bool)
 parseMode = (,) <$>
       (flag' Typecheck ( long "typecheck" <> short 't' <> help "Chequear tipos e imprimir el término")
-      <|> flag' InteractiveTypecheck (long "interactiveTypecheck" <> short 'Ǽ' <> help "Chequear tipos de manera interactiva")
-      <|> flag' InteractiveCEK (long "interactiveCEK" <> short 'k' <> help "Ejecutar interactivamente en la CEK")
+      <|> flag' InteractiveTypecheck (long "interactiveTypecheck" <> short 'Ǽ' <> help "Chequear tipos de manera interactiva") -- Extra
+      <|> flag' InteractiveCEK (long "icek" <> short 'k' <> help "Ejecutar interactivamente en la CEK")
+      <|> flag' CEK (long "cek" <> short 'c' <> help "Ejecutar CEK")
       <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
       <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
       <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
-  -- <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")
+      <|> flag Eval        Eval        (long "eval" <> short 'e' <> help "Evaluar programa")
+      <|> flag' CC ( long "cc" <> short 's' <> help "Compilar a código C")
   -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonicalización")
   -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
   -- <|> flag' Build ( long "build" <> short 'b' <> help "Compilar")
@@ -75,6 +80,8 @@ main = execParser opts >>= go
      <> header "Compilador de FD4 de la materia Compiladores 2022" )
 
     go :: (Mode,Bool,[FilePath]) -> IO ()
+    go (Eval, opt, files) =
+              runOrFail (Conf opt Eval) $ mapM_ compileFile files
     go (Interactive,opt,files) =
               runOrFail (Conf opt Interactive) (runInputT defaultSettings (repl files))
     go (InteractiveCEK, opt, files) =
@@ -85,6 +92,10 @@ main = execParser opts >>= go
               runOrFail (Conf opt Bytecompile) $ mapM_ compileFile files
     go (RunVM, opt, files) =
               runOrFail (Conf opt RunVM) $ mapM_ compileFile files
+    go (CEK, opt, files) =
+              runOrFail (Conf opt CEK) $ mapM_ compileFile files
+    go (CC, opt, files) =
+              runOrFail (Conf opt CC) $ mapM_ compileFile files
     go (m,opt, files) =
               runOrFail (Conf opt m) $ mapM_ compileFile files
 
@@ -99,6 +110,7 @@ runOrFail c m = do
 
 repl :: (MonadFD4 m, MonadMask m) => [FilePath] -> InputT m ()
 repl args = do
+       lift $ setInter True
        lift $ catchErrors $ mapM_ compileFile args
        s <- lift get
        when (inter s) $ liftIO $ putStrLn
@@ -131,34 +143,48 @@ checkAndStore :: MonadFD4 m => Decl Term -> m (Decl TTerm)
 checkAndStore d = do t' <- tcDecl d
                      addDecl t'
                      return t'
-                     
 
 compileFile ::  MonadFD4 m => FilePath -> m ()
 compileFile f = do
     mode <- getMode
+    opt <- getOpt
     case mode of
       Bytecompile -> do
                     setInter False
-                    printFD4 ("Abriendo "++f++"...")
                     lf <- loadFile f
 
-                    mbl <- mapM elabDeclType lf
+                    mbl <- mapM elabDeclType lf -- El problema es que la monada aplica todas, por lo que addDecl no agrega FNat a la lista de tipos y las declaraciones posteriores no saben que existe hasta que se termina este mapM.
                     mbl2 <- mapM elabDecl mbl
                     let decls = concat (map maybeToList mbl2)
                     typedDecls <- mapM checkAndStore decls
-                    printFD4 (show typedDecls)
 
-                    comp <- bytecompileModule typedDecls
+                    let optDecls = if opt then map optimize typedDecls else typedDecls
+
+                    comp <- bytecompileModule optDecls
                     printFD4 (showBC comp)
-                    liftIO $ bcWrite comp "file.bc"
-                    -- map read $ words "1 2 3 4 5"
+                    liftIO $ bcWrite comp ((init (init (init f))) ++ "bc8")
       RunVM -> do
-                  lf <- liftIO $ bcRead f
-                  runBC lf
+                    lf <- liftIO $ bcRead f
+                    runBC lf
+      CC -> do
+                    setInter False
+                    lf <- loadFile f
+
+                    mbl <- mapM elabDeclType lf -- El problema es que la monada aplica todas, por lo que addDecl no agrega FNat a la lista de tipos y las declaraciones posteriores no saben que existe hasta que se termina este mapM.
+                    mbl2 <- mapM elabDecl mbl
+                    let decls = concat (map maybeToList mbl2)
+                    typedDecls <- mapM checkAndStore decls
+
+                    let optDecls = if opt then map optimize typedDecls else typedDecls
+                    printFD4 (show optDecls)
+                    let comp = runCC optDecls
+                        irDecl = ir2C (IrDecls comp)
+                    printFD4 (show comp)
+                    liftIO $ writeFile ((init (init (init f))) ++ "c") irDecl
       _ -> do 
                     i <- getInter
                     setInter False
-                    printFD4 ("Abriendo "++f++"...")
+                    when i $ printFD4 ("Abriendo "++f++"...")
                     decls <- loadFile f
                     mapM_ handleDecl decls
                     setInter i
@@ -168,39 +194,34 @@ parseIO filename p x = case runP p x filename of
                   Left e  -> throwError (ParseErr e)
                   Right r -> return r
 
+evalDecl :: MonadFD4 m => Decl TTerm -> (TTerm -> m TTerm) -> m (Decl TTerm)
+evalDecl (Decl p x e) evalArg = do
+    e' <- evalArg e
+    return (Decl p x e')
+
 handleDecl ::  MonadFD4 m => SDecl STerm -> m ()
 handleDecl d = do
-        m <- getMode
-        case m of
-          Interactive -> do
-                            a <- typecheckDecl d
-                            (case a of
-                              Nothing -> return ()
-                              Just (Decl p x tt) -> 
-                                do te <- eval tt
-                                   addDecl (Decl p x te))
-          Typecheck -> do
-                          f <- getLastFile
-                          printFD4 ("Chequeando tipos de "++f)
-                          td <- typecheckDecl d
-                          (case td of
-                            Nothing -> return ()
-                            Just tf ->
-                              -- hay que hacer esto en todos los otros casos de ejecución, para saber so optimizar o no.
-                               do opt <- getOpt
-                                  let td' = if opt then optimize tf else tf
-                                  addDecl td'
-                                  ppterm <- ppDecl td'
-                                  printFD4 ppterm)
-          InteractiveCEK -> do
-                              a <- typecheckDecl d
-                              (case a of
-                                Nothing -> return ()
-                                Just (Decl p x tt) -> 
-                                  do te <- evalCEK tt
-                                     addDecl (Decl p x te))
-          _ -> pure () -- Para los casos que no son necesarios considerar. Idem mas abajo
-
+        mode <- getMode
+        tdcase <- typecheckDecl d
+        case tdcase of
+          Nothing -> return ()
+          Just td -> do opt <- getOpt
+                        let od = if opt then optimize td else td
+                        case mode of
+                          Interactive -> do ed <- evalDecl od eval
+                                            addDecl ed
+                          Eval -> do ed <- evalDecl od eval
+                                     addDecl ed
+                          Typecheck -> do f <- getLastFile
+                                          printFD4 ("Chequeando tipos de " ++ f)
+                                          addDecl od
+                                          ppterm <- ppDecl od
+                                          printFD4 ppterm
+                          InteractiveCEK -> do te <- evalDecl od evalCEK
+                                               addDecl te
+                          CEK -> do te <- evalDecl od evalCEK
+                                    addDecl te
+                          _ -> pure () -- Para los casos que no son necesarios considerar. Idem mas abajo
 
 typecheckDecl :: MonadFD4 m => SDecl STerm -> m (Maybe (Decl TTerm))
 typecheckDecl dec = do  decT <- elabDeclType dec 
@@ -209,7 +230,6 @@ typecheckDecl dec = do  decT <- elabDeclType dec
                           Nothing -> return Nothing
                           Just tt -> do t' <- tcDecl tt
                                         return (Just t')
-
 
 
 data Command = Compile CompileForm

@@ -93,7 +93,7 @@ subst n (Sc1 m) = varChanger (\_ p n -> V p (Free n)) bnd m
    where bnd depth p i 
              | i <  depth = V p (Bound i)
              | i == depth = n
-             | otherwise  = abort "substN: M is not LC"
+             | otherwise  = abort "subst: M is not LC"
 
 -- `subst2 u1 u2 t1 sustituye índice de de Bruijn 0 en t por u1 y el índice 1 por u2. 
 -- Notar que t es un Scope con dos índices que escapan el término.
@@ -103,16 +103,15 @@ subst2 n1 n2 (Sc2 m) = varChanger (\_ p n -> V p (Free n)) bnd m
              | i <  depth = V p (Bound i)
              | i == depth = n2
              | i == depth+1 = n1
-             | otherwise  = abort "substN: M is not LC"
+             | otherwise  = abort "subst2: M is not LC"
 
--- Peligroso (no scope)
+-- Peligroso (no usa scopes)
 --
 -- `substN [t0,..,tn] t` sustituye los índices de de Bruijn en t con
--- los términos de la lista. Bound 0 pasa a t0, etc. Notar el orden
--- inverso para hacer las llamadas más intuitivas.
+-- los términos de la lista. Bound 0 pasa a t0, etc.
 --
--- El término `t` debe tener a lo sumo tantos índices abiertos como la
--- longitud de la lista. Si es localmente cerrado (es decir que no tiene
+-- El término `t` debe tener a lo sumo tantos índices abiertos como
+-- la longitud de la lista. Si es localmente cerrado (i.e. no tiene
 -- índices abiertos), nada va a ser sustituido.
 --
 -- Puede pensarse como una optimizacíon de primero hacer `open
@@ -145,6 +144,8 @@ close2 nm1 nm2 t = Sc2 (varChanger lcl (\_ p i -> V p (Bound i)) t)
                       | otherwise = V p (Free y)
 
 
+-- Funciones auxiliares útiles.
+
 countFree :: Tm info Var -> Int
 countFree (V p (Bound i)) = 0
 countFree (V p (Free x)) = 1
@@ -157,6 +158,20 @@ countFree t@(Const _ _) = 0
 countFree (Print p str t) = countFree t
 countFree (BinaryOp p op t u) = (countFree t) + (countFree u)
 countFree (Let p v vty m (Sc1 o)) = (countFree m) + (countFree o)
+
+getFree :: TTerm -> [(Name, Ty)]
+getFree (V p (Bound i)) = []
+getFree (V p (Free x)) = [(x, snd p)]
+getFree (V p (Global x)) = []
+getFree (Lam p y ty (Sc1 t)) = getFree t
+getFree (App p l r)   = (getFree l) ++ (getFree r)
+getFree (Fix p f fty x xty (Sc2 t)) = (getFree t)
+getFree (IfZ p c t e) = (getFree c) ++ (getFree t) ++ (getFree e)
+getFree t@(Const _ _) = []
+getFree (Print p str t) = getFree t
+getFree (BinaryOp p op t u) = (getFree t) ++ (getFree u)
+getFree (Let p v vty m (Sc1 o)) = (getFree m) ++ (getFree o)
+
 
 -- cuenta lacatidad de veces que aparezco dentro de lambdas.
 countBound :: Int -> Tm info Var -> Int

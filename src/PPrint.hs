@@ -50,7 +50,7 @@ freshen ns n = let cands = n : map (\i -> n ++ show i) [0..]
 openAll :: (i -> Pos) -> [Name] -> Tm i Var -> STermTy
 openAll gp ns (V p v) = case v of 
       Bound i ->  SV (gp p) $ "(Bound "++show i++")" --este caso no debería aparecer
-                                               --si el término es localmente cerrado
+                                                     --si el término es localmente cerrado
       Free x -> SV (gp p) x
       Global x -> SV (gp p) x
 openAll gp ns (Const p c) = SConst (gp p) c
@@ -88,8 +88,6 @@ mkSLam i ns (Lam p x ty t) =
                                                    in if ty == ty' then ((nw:va', ty):xs', t)
                                                                    else ((([nw], ty):xs), t)
                                 term -> ([([nw], ty)], term)
-
---mkSLam i ns (Lam p x ty t) = ([], t)
 
 
 --Colores

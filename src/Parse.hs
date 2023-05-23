@@ -132,7 +132,10 @@ binding = do v <- var
 
 -- Read 1 or more bindings 
 readparams :: P [([Name], STy)]
-readparams = many1 ((parens readparam) <|> readparam)
+readparams = many1 ((try (parens readparam)) <|> readparam)
+
+lamreadparams :: P [([Name], STy)]
+lamreadparams = parens (many1 ((try (parens readparam)) <|> readparam))
 
 readparam :: P ([Name], STy)
 readparam = do l <- many1 var
@@ -148,7 +151,7 @@ readparams0 = many ((parens readparam) <|> readparam)
 lam :: P STerm
 lam = do i <- getPos
          reserved "fun"
-         params <- readparams
+         params <- lamreadparams
          reservedOp "->"
          t <- expr
          return (SLam i params t)
@@ -213,7 +216,7 @@ letfun = do
 
 -- | Parser de términos
 tm :: P STerm
-tm = app <|> lam <|> ifz <|> printOp <|> fix <|> lets
+tm = (try lam) <|> (try ifz) <|> (try printOp) <|> (try fix) <|> (try lets) <|> (try app)
 
 -- | Parser de declaraciones
 decl :: P (SDecl STerm)
@@ -225,9 +228,15 @@ declexp = do
   i <- getPos
   reserved "let"
   v <- var
-  reservedOp "="
-  def <- expr
-  return (SDecl i v def)
+  (do 
+    reservedOp ":"
+    typeP
+    reservedOp "="
+    def <- expr
+    return (SDecl i v def))
+    <|> (do reservedOp "="
+            def <- expr
+            return (SDecl i v def))
 
 declfun :: P (SDecl STerm)
 declfun = do

@@ -91,15 +91,22 @@ showOps (ADD:xs)         = "ADD" : showOps xs
 showOps (SUB:xs)         = "SUB" : showOps xs
 showOps (FIX:i:xs)       = "FIX" : (show i) : showOps xs
 showOps (STOP:xs)        = "STOP" : showOps xs
-showOps (JUMP:i:xs)      = "JUMP" : show i: showOps xs
+showOps (JUMP:i:xs)      = ("JUMP off=" ++ show i) : showOps xs
 showOps (SHIFT:xs)       = "SHIFT" : showOps xs
 showOps (DROP:xs)        = "DROP" : showOps xs
-showOps (PRINT:xs)       = let (msg:rest) = splitOn [NULL,NULL,NULL,NULL] xs
-                           in ("PRINT " ++ show (bc2string msg)) : showOps (concat rest)
+showOps (PRINT:xs)       = let (msg,rest) = splitOnNull xs
+                           in ("PRINT " ++ show (bc2string msg)) : showOps rest
 showOps (PRINTN:xs)      = "PRINTN" : showOps xs
 showOps (ADD:xs)         = "ADD" : showOps xs
 showOps (POP:xs)         = "POP" : showOps xs
 showOps (x:xs)           = show x : showOps xs
+
+splitOnNull :: Bytecode -> (Bytecode, Bytecode)
+splitOnNull (x1:x2:x3:x4:[]) = ([x1,x2,x3,x4], [])
+splitOnNull (x1:x2:x3:x4:xs) = if x1 == NULL && x2 == NULL &&  x3 == NULL &&  x4 ==  NULL
+                               then ([], xs)
+                               else let (x,y) = splitOnNull xs
+                                    in (x1:x2:x3:x4:x, y)
 
 showBC :: Bytecode -> String
 showBC = intercalate "; " . showOps
@@ -135,7 +142,7 @@ bcc (IfZ i x y z) = do x' <- bcc x
                        z' <- bcc z
                        return (x' ++ [JUMP] ++ [(length y') + 2] ++ y' ++ [IJUMP] ++ [length z'] ++ z')
 bcc (Print i msg y) = do y' <- bcc y
-                         return ([PRINT] ++ (string2bc msg) ++ [NULL,NULL,NULL,NULL] ++ y' ++ [PRINTN])
+                         return (y' ++ [PRINT] ++ (string2bc msg) ++ [NULL,NULL,NULL,NULL] ++ [PRINTN])
 
 bct :: MonadFD4 m => TTerm -> m Bytecode
 bct (App i x y ) = do x' <- bcc x
@@ -204,7 +211,7 @@ bytecompileModule' ((Decl i name body):xs) = do by <- (bytecompileModule' xs)
 bcWrite :: Bytecode -> FilePath -> IO ()
 bcWrite bs filename = do 
   BS.writeFile filename (encode $ BC $ fromIntegral' <$> bs)
-  where fromIntegral' x = if x < 256 && x >= 0 then fromIntegral x else error "Msal codificado"
+  where fromIntegral' x = if x < 256 && x >= 0 then fromIntegral x else error "Mal codificado"
 
 ---------------------------
 -- * Ejecución de bytecode
@@ -228,21 +235,22 @@ runBD' (NULL:c) _ _ = printFD4 "No deberiamos llegar aca"
 runBD' (RETURN:_) _ (v:(MDir e c):s) = runBD' c e (v:s)
 runBD' (CONST:i1:i2:i3:i4:c) e s = runBD' c e ((MNat (fourBytesToInt [i1,i2,i3,i4])):s)
 runBD' (ACCESS:(i:c)) e s  = runBD' c e ((e!!i):s)
-runBD' (FUNCTION:(fl:c)) e s = let c' = (drop fl c)
+runBD' (FUNCTION:(fl:c)) e s = let c' = (drop fl c) -- Para arreglar largo mayor a 256 cambiar fl por fourBytesToInt y en bcc guardar tambien 4 bytes
                              in runBD' c' e ((MClos e c):s)
 runBD' (CALL:c) e (v:(MClos ef cf):s) = runBD' cf (v:ef) ((MDir e c):s)
 runBD' (ADD:c) e ((MNat x):((MNat y):s)) = runBD' c e ((MNat (x+y)):s)
-runBD' (SUB:c) e ((MNat x):((MNat y):s)) = runBD' c e ((MNat (x-y)):s)
+runBD' (SUB:c) e ((MNat x):((MNat y):s)) = runBD' c e ((MNat (if x-y > 0 then x - y else 0)):s)
 runBD' (FIX:(fl:c)) e s = let c' = (drop fl c)
                               efix = (MClos efix c):e
                           in runBD' c' e ((MClos efix c):s)
-runBD' (STOP:_) e s = printFD4 "Fin ejecucion"
+runBD' (STOP:_) e s = return ()
 runBD' (SHIFT:c) e (v:s) = runBD' c (v:e) s
 runBD' (DROP:c) (v:e) s = runBD' c e s
 runBD' (PRINT:c) e s = runBD'' c e s
                        where runBD'' (NULL:NULL:NULL:NULL:c) e s = runBD' c e s
                              runBD'' (i1:i2:i3:i4:c) e s = do printFD4Char [(thirty2toChar [i1,i2,i3,i4])]
                                                               runBD'' c e s
+-- Otra opcion para print.
 -- runBD' (PRINT:c) e s = let (st, c') = splitAt NULL c
 --                       in do printFD4 (map chr st)
 --                             runBD' c' e s

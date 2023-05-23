@@ -76,12 +76,7 @@ elabDecl (SDeclLam i True f param tf def) = do return (Just (Decl i f def'))
   where def' = (elab' [] (SFix i (f, mkArr (map snd ((v, tv):xs)) tf) (v, tv) ys def))
         ((v, tv):xs) = dbnd param
         ys = implode xs
-elabDecl (SDeclType i n t) = do ty <- lookupTyDef n
-                                case ty of
-                                  Nothing -> do addTypeDef (n, t)
-                                                return Nothing 
-                                  Just _ -> failPosFD4 i $ n ++" ya está declarado"
-                                
+elabDecl (SDeclType i n t) = return Nothing                                
 
 typeResolver :: MonadFD4 m => STy -> Pos -> m (Ty)
 typeResolver SNatTy p = return NatTy
@@ -145,5 +140,10 @@ elabDeclType (SDeclLam i b f xs tf def) = do t1' <- typeResolver tf i
                                              e1' <- elabTermType def
                                              xs' <- listElemTypeResolver i xs
                                              return (SDeclLam i b f xs' t1' e1')
-elabDeclType (SDeclType i n t) = do t1' <- typeResolver t i 
-                                    return (SDeclType i n t1')
+elabDeclType (SDeclType i n t) = do ty <- lookupTyDef n
+                                    case ty of
+                                      Nothing -> do t1' <- typeResolver t i 
+                                                    addTypeDef (n, t1')
+                                                    return (SDeclType i n t1') 
+                                      Just _ -> failPosFD4 i $ n ++" ya está declarado" 
+
